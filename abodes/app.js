@@ -302,11 +302,22 @@ function plotCellAt(x, y) {
 
 function wireBoardInput(root) {
   let p = null;                 // active pointer gesture
+  let lastTouchTime = 0;        // guards against ghost mouse events after a touch
 
   root.addEventListener("contextmenu", (e) => e.preventDefault());
+  // Belt-and-suspenders against mobile double-tap-to-zoom (touch-action in CSS
+  // is the primary fix; this stops any synthesized dblclick as well).
+  root.addEventListener("dblclick", (e) => e.preventDefault());
 
   root.addEventListener("pointerdown", (e) => {
-    if (e.button != null && e.button !== 0 && e.pointerType === "mouse") return;
+    if (e.pointerType === "mouse") {
+      if (e.button != null && e.button !== 0) return;   // non-left mouse: ignore
+      // A touch fires compatibility mouse events right after; ignore those so a
+      // single tap never advances the cell twice.
+      if (Date.now() - lastTouchTime < 700) return;
+    } else {
+      lastTouchTime = Date.now();
+    }
     const clue = e.target.closest(".clue-row, .clue-col");
     if (clue) { onClueClick(clue); return; }
     const cell = e.target.closest(".cell.plot");
@@ -331,18 +342,22 @@ function wireBoardInput(root) {
     if (!p.painted.has(idx)) { setCell(idx, GRASS); p.painted.add(idx); }
   });
 
-  const endGesture = (e) => {
+  // `cycle` is true only for a real finish (pointerup). A pointercancel — which
+  // fires when the browser hijacks the gesture (e.g. an attempted zoom) — must
+  // NOT advance the cell, or taps get an extra, order-scrambling step.
+  const endGesture = (e, cycle) => {
     if (!p || e.pointerId !== p.id) return;
+    if (e.pointerType !== "mouse") lastTouchTime = Date.now();
     try { root.releasePointerCapture(e.pointerId); } catch {}
-    if (!p.dragged) {
+    if (cycle && !p.dragged) {
       // A plain tap cycles the cell through empty -> grass -> tent -> empty.
       setCell(p.startIdx, nextCellState(game.cells[p.startIdx]));
     }
     p = null;
     afterChange();
   };
-  root.addEventListener("pointerup", endGesture);
-  root.addEventListener("pointercancel", endGesture);
+  root.addEventListener("pointerup", (e) => endGesture(e, true));
+  root.addEventListener("pointercancel", (e) => endGesture(e, false));
 }
 
 // Clicking a clue toggles its line's grass: if any cell is still empty, fill the
@@ -418,6 +433,20 @@ function refreshState() {
     }
     const cell = document.querySelector(`#board .cell[data-idx="${i}"]`);
     if (cell) cell.classList.toggle("conflict", bad);
+  }
+
+  // Dim each tree that now has a tent orthogonally beside it, so it's clear at a
+  // glance which trees still need one.
+  for (const t of game.trees) {
+    const r = (t / n) | 0, c = t % n;
+    let served = false;
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const rr = r + dr, cc = c + dc;
+      if (rr < 0 || rr >= n || cc < 0 || cc >= n) continue;
+      if (game.cells[rr * n + cc] === TENT) { served = true; break; }
+    }
+    const cell = document.querySelector(`#board .cell[data-idx="${t}"]`);
+    if (cell) cell.classList.toggle("served", served);
   }
 
   // Tent counter in the game bar.
@@ -612,6 +641,7 @@ function miniBoard(rows) {
     if (tok === "A") return `<div class="mini-cell">${tentSVG()}</div>`;
     if (tok === "A!") return `<div class="mini-cell conflict">${tentSVG()}</div>`;
     if (tok === "x") return `<div class="mini-cell grass">${grassSVG()}</div>`;
+    if (tok[0] === "#") return `<div class="mini-cell clue">${tok.slice(1)}</div>`;  // edge clue
     return `<div class="mini-cell"></div>`;
   }).join("");
   return `<div class="mini-board" style="--m:${rows[0].split(" ").length}">${cells}</div>`;
@@ -624,6 +654,7 @@ function buildRulesDiagrams() {
     `<figure class="dia ${cls}">${board}<figcaption>${label}</figcaption></figure>`;
   box.innerHTML =
     ex("good", miniBoard(["O A .", ". . .", ". . ."]), "✓ One tent beside its tree") +
+    ex("info", miniBoard(["O A x A O #2"]), "The edge number = tents in that line") +
     ex("bad", miniBoard([". O .", ". A! .", "O A! ."]), "✗ Tents can't touch each other") +
     ex("bad", miniBoard(["O . .", ". A! .", ". . ."]), "✗ A tent must be directly beside a tree");
 }

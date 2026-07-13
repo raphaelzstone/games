@@ -152,6 +152,15 @@ body {
 .rules-goal { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text); }
 .rules-box ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.7; }
 .rules-box b { color: var(--text); }
+.rules-tip {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
 .legend-tent { color: var(--tent); font-weight: 700; }
 .legend-grass { color: var(--muted); font-weight: 700; }
 
@@ -167,6 +176,15 @@ body {
 .dia figcaption { font-size: 11.5px; color: var(--muted); max-width: 14ch; text-align: center; line-height: 1.35; }
 .dia.good figcaption { color: var(--accent); }
 .dia.bad figcaption { color: var(--bad); }
+.dia.info figcaption { color: var(--muted); }
+.mini-cell.clue {
+  background: none;
+  border: none;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--muted);
+}
 .mini-board {
   --m: 3;
   display: grid;
@@ -227,6 +245,10 @@ body {
   -webkit-touch-callout: none;
   touch-action: none;   /* let press-and-drag paint without scrolling */
 }
+/* Taps land on the cells (and the SVGs inside them), not the board container,
+ * so the no-zoom / no-scroll gesture rule has to reach every descendant —
+ * otherwise a quick double-tap to place a tent zooms the page on mobile. */
+.board, .board * { touch-action: none; -webkit-tap-highlight-color: transparent; }
 
 .cell {
   position: relative;
@@ -238,10 +260,14 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background .1s, border-color .1s;
+  transition: background .1s, border-color .1s, opacity .12s;
 }
 .cell.plot:hover { border-color: var(--accent); }
 .cell.tree { background: #dfead2; cursor: default; }
+/* A tree dims once a tent sits directly beside it — a quick read of which trees
+ * still need one. (Where a tent sits between two trees it can only serve one,
+ * so treat this as a nudge, not proof.) */
+.cell.tree.served { opacity: .38; }
 .cell.is-tent { background: #f6e7d3; border-color: var(--tent); }
 .cell.is-grass { background: var(--panel-2); cursor: pointer; color: #9bab8c; }
 /* A tent that illegally touches another tent gets a red ring. */
