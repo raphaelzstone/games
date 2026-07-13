@@ -331,9 +331,18 @@ function wireBoardInput(root) {
   let lastTouchTime = 0;        // guards against ghost mouse events after a touch
 
   root.addEventListener("contextmenu", (e) => e.preventDefault());
-  // Belt-and-suspenders against mobile double-tap-to-zoom (touch-action in CSS
-  // is the primary fix; this stops any synthesized dblclick as well).
   root.addEventListener("dblclick", (e) => e.preventDefault());
+
+  // iOS Safari's double-tap-to-zoom is a separate gesture that `touch-action`
+  // does NOT reliably suppress. Placing a tent is two quick taps on one cell —
+  // exactly what triggers it — so cancel the default on a rapid second touchend.
+  // The tap itself is already handled via pointer events, so nothing is lost.
+  let lastTouchEnd = 0;
+  root.addEventListener("touchend", (e) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 350) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive: false });
 
   root.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") {
