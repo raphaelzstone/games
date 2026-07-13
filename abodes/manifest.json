@@ -1,0 +1,15 @@
+{
+  "name": "Abodes",
+  "short_name": "Abodes",
+  "description": "A daily Tents logic puzzle. A fresh camp every day.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#b8cab0",
+  "theme_color": "#b8cab0",
+  "icons": [
+    { "src": "icon.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
