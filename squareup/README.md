@@ -11,9 +11,9 @@ one** such split.
 ## Scoring
 
 One count-up timer runs until you solve it; your time is the score (lower is
-better). Stuck? **Reveal** shows the answer for a **+30 second** penalty.
-Results persist per day and copy as a spoiler-free summary (time only, never
-the shape or the split).
+better). Stuck? **Skip** shows the answer, but earns no score — no leaderboard
+entry, no streak. Results persist per day and copy as a spoiler-free summary
+(time only, never the shape or the split).
 
 ## Files
 

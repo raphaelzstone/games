@@ -10,12 +10,11 @@
  * to have exactly one such split.
  *
  * It's a race against the clock: a count-up timer runs until you solve it,
- * your time is the score (lower is better). A Reveal costs +30s. Results
- * persist per day and copy as a spoiler-free summary (time only, never the
- * shape or the split).
+ * your time is the score (lower is better). Stuck? Skip shows the answer, but
+ * a skip earns no score — no leaderboard entry, no streak. Results persist per
+ * day and copy as a spoiler-free summary (time only, never the shape or the
+ * split).
  * ========================================================================= */
-
-const REVEAL_PENALTY = 30;   // seconds added for revealing the answer
 
 // --- Seeded RNG (mulberry32) ------------------------------------------------
 function hashString(str) {
@@ -255,7 +254,7 @@ function onCheck() {
   }
 }
 
-function onReveal() {
+function onSkip() {
   if (!game || game.solved) return;
   const aKeys = game.puzzle.a.map(([r, c]) => keyOf(r, c));
   game.marked = new Set(aKeys);
@@ -270,13 +269,26 @@ function flashMsg(text, cls) {
   m.className = "guess-msg " + (cls || "");
 }
 
-function finishGame(revealed) {
+// `skipped` earns no score at all: no leaderboard entry, no streak bump. The
+// local result is still saved (so re-opening today shows the skip, not a
+// fresh puzzle) but carries no time.
+function finishGame(skipped) {
   game.solved = true;
   if (game.tickId) { clearInterval(game.tickId); game.tickId = null; }
   $("#check-btn").disabled = true;
   $("#reveal-btn").disabled = true;
-  const seconds = Math.round(elapsedSec() + (revealed ? REVEAL_PENALTY : 0));
-  const result = { date: dateKey(), seconds, revealed };
+
+  if (skipped) {
+    const result = { date: dateKey(), skipped: true };
+    saveResult(result);
+    clearProgress();
+    flashMsg("Skipped", "reveal");
+    setTimeout(() => renderResults(result, false), 500);
+    return;
+  }
+
+  const seconds = Math.round(elapsedSec());
+  const result = { date: dateKey(), seconds, skipped: false };
   saveResult(result);
   clearProgress();
   bumpStreak();
@@ -284,8 +296,8 @@ function finishGame(revealed) {
   window.Leaderboard?.submitScore?.({
     userId: user.id, name: user.name, date: result.date, seconds: result.seconds,
   });
-  flashMsg(revealed ? "Revealed" : "Solved!", revealed ? "reveal" : "good");
-  setTimeout(() => renderResults(result, false), revealed ? 500 : 700);
+  flashMsg("Solved!", "good");
+  setTimeout(() => renderResults(result, false), 700);
 }
 
 function stopGame() {
@@ -297,9 +309,13 @@ function stopGame() {
  * Results + share
  * ========================================================================= */
 function renderResults(result, replay) {
-  $("#results-title").textContent =
-    (replay ? "Already solved" : (result.revealed ? "Revealed" : "Solved!"));
-  $("#final-time").textContent = fmtElapsed(result.seconds);
+  if (result.skipped) {
+    $("#results-title").textContent = "Skipped";
+    $("#final-time").textContent = "—";
+  } else {
+    $("#results-title").textContent = replay ? "Already solved" : "Solved!";
+    $("#final-time").textContent = fmtElapsed(result.seconds);
+  }
 
   // The plain 5x5 square the day's shape hides, both pieces coloured to match
   // the play board — the "aha, it really becomes a square" payoff.
@@ -315,10 +331,10 @@ function renderResults(result, replay) {
 function buildShareText() {
   const res = loadResult();
   if (!res) return `Square Up — ${dateKey()}`;
+  if (res.skipped) return `Square Up — ${res.date}\n⬜ Skipped`;
   const streak = currentStreak();
   const tail = streak >= 2 ? `  🔥 ${streak}` : "";
-  const mark = res.revealed ? "⬜" : "🟩";
-  return `Square Up — ${res.date}\n${mark} ⏱ ${fmtElapsed(res.seconds)}${tail}`;
+  return `Square Up — ${res.date}\n🟩 ⏱ ${fmtElapsed(res.seconds)}${tail}`;
 }
 
 async function copyToClipboard(text) {
@@ -347,7 +363,7 @@ function refreshMenu() {
   const res = loadResult();
   const prog = loadProgress();
   $("#status-daily").textContent = res
-    ? `Solved today · ${fmtElapsed(res.seconds)}${res.revealed ? " (revealed)" : ""}`
+    ? (res.skipped ? "Skipped today · no score" : `Solved today · ${fmtElapsed(res.seconds)}`)
     : (prog ? "In progress…" : "Not solved today");
   $("#menu-share-btn").hidden = !res;
   $("#menu-art").innerHTML = miniSquareArt();
@@ -467,7 +483,7 @@ function init() {
     $("#menu-rules-btn").classList.toggle("open", open);
   });
   $("#check-btn").addEventListener("click", onCheck);
-  $("#reveal-btn").addEventListener("click", onReveal);
+  $("#reveal-btn").addEventListener("click", onSkip);
   $("#menu-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#menu-copied-toast"); });
   $("#results-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#results-copied-toast"); });
 
