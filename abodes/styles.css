@@ -264,17 +264,12 @@ body {
 }
 .cell.plot:hover { border-color: var(--accent); }
 .cell.tree { background: #dfead2; cursor: default; }
-/* On the playable board, a tree starts muted and lights up green only once it's
- * *certainly* matched to a tent (see doneTrees) — trees that could still belong
- * to another tent stay muted until it's settled. Scoped to #board so the solved
- * board and how-to-play diagrams keep their trees at full colour. */
-#board .cell.tree { filter: grayscale(0.7); opacity: .6; transition: filter .15s, opacity .15s, box-shadow .15s; }
-#board .cell.tree.done {
-  filter: none;
-  opacity: 1;
-  background: #cfe6c0;
-  box-shadow: inset 0 0 0 2px var(--accent);
-}
+/* On the playable board, a tree greys out once it's *certainly* matched to a
+ * tent (see doneTrees) — a settled tree you can stop thinking about. Trees that
+ * could still belong to another tent stay full colour until it's resolved.
+ * Scoped to #board so the solved board and how-to-play diagrams stay vivid. */
+#board .cell.tree { transition: filter .15s, opacity .15s; }
+#board .cell.tree.done { filter: grayscale(0.6); opacity: .4; }
 .cell.is-tent { background: #f6e7d3; border-color: var(--tent); }
 .cell.is-grass { background: var(--panel-2); cursor: pointer; color: #9bab8c; }
 /* A tent that illegally touches another tent gets a red ring. */

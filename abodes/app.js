@@ -134,13 +134,22 @@ function saveResult(mode, result) {
   try { localStorage.setItem(resultKey(mode), JSON.stringify(result)); }
   catch { /* storage unavailable — game still works */ }
 }
-// Persist an in-progress board so a refresh doesn't wipe your work.
-function saveProgress(mode, cells) {
-  try { localStorage.setItem(progressKey(mode), JSON.stringify(cells)); } catch {}
+// Persist an in-progress board AND the elapsed time, so leaving and coming back
+// resumes both the layout and the clock (not a reset to 0:00). Older saves were
+// a bare cells array; loadProgress callers handle both shapes.
+function saveProgress(mode, cells, elapsed) {
+  try { localStorage.setItem(progressKey(mode), JSON.stringify({ cells, elapsed: elapsed || 0 })); } catch {}
 }
 function loadProgress(mode) {
   try { return JSON.parse(localStorage.getItem(progressKey(mode)) || "null"); }
   catch { return null; }
+}
+// Normalise either progress shape to { cells, elapsed }.
+function readProgress(mode) {
+  const saved = loadProgress(mode);
+  if (Array.isArray(saved)) return { cells: saved, elapsed: 0 };          // legacy
+  if (saved && typeof saved === "object") return { cells: saved.cells, elapsed: saved.elapsed || 0 };
+  return null;
 }
 function clearProgress(mode) {
   try { localStorage.removeItem(progressKey(mode)); } catch {}
@@ -185,9 +194,13 @@ function startGame(mode) {
   const puzzle = dailyPuzzle(mode);
   const n = puzzle.size;
   const cells = new Array(n * n).fill(EMPTY);
-  const saved = loadProgress(mode);
-  if (Array.isArray(saved) && saved.length === n * n) {
-    for (let i = 0; i < cells.length; i++) cells[i] = saved[i] || EMPTY;
+  const saved = readProgress(mode);
+  let elapsedBefore = 0;
+  if (saved) {
+    if (Array.isArray(saved.cells) && saved.cells.length === n * n) {
+      for (let i = 0; i < cells.length; i++) cells[i] = saved.cells[i] || EMPTY;
+    }
+    elapsedBefore = saved.elapsed;      // resume the clock where it left off
   }
   game = {
     mode, puzzle, n,
@@ -195,8 +208,9 @@ function startGame(mode) {
     solution: new Set(puzzle.tents.map(([r, c]) => r * n + c)),
     cells,
     startMs: performance.now(),
-    elapsedBefore: 0,
+    elapsedBefore,
     tickId: null,
+    lastPersist: 0,
   };
   showView("game");
   $("#game-mode-label").textContent = MODES[mode].title;
@@ -210,6 +224,18 @@ function elapsedSec() {
 }
 function updateTimer() {
   $("#timer").textContent = fmtElapsed(elapsedSec());
+  // Persist the running clock every few seconds so an abrupt close (no move,
+  // no pagehide) still resumes near where it left off.
+  if (performance.now() - game.lastPersist > 5000) {
+    game.lastPersist = performance.now();
+    saveProgress(game.mode, game.cells, elapsedSec());
+  }
+}
+
+// Save the board + clock right now (used when leaving the game or backgrounding
+// the tab, so returning resumes instead of resetting to 0:00).
+function persistProgress() {
+  if (game && game.tickId) saveProgress(game.mode, game.cells, elapsedSec());
 }
 
 // Render the playable board into #board: an (n+1)x(n+1) grid where the last
@@ -385,7 +411,7 @@ function onClueClick(clueEl) {
 }
 
 function afterChange() {
-  saveProgress(game.mode, game.cells);
+  saveProgress(game.mode, game.cells, elapsedSec());
   refreshState();
   checkWin();
 }
@@ -545,6 +571,7 @@ function finishGame() {
 }
 
 function stopGame() {
+  persistProgress();   // save the clock before pausing (e.g. back to menu)
   if (game && game.tickId) { clearInterval(game.tickId); game.tickId = null; }
 }
 
@@ -725,6 +752,11 @@ function buildRulesDiagrams() {
 function init() {
   window.AbodesUser.getOrCreateUser();
   refreshMenu();
+
+  // Save the running clock when the tab is hidden or closed (mobile app switch,
+  // lock screen, tab close) so returning resumes the timer instead of resetting.
+  document.addEventListener("visibilitychange", () => { if (document.hidden) persistProgress(); });
+  window.addEventListener("pagehide", persistProgress);
 
   document.querySelectorAll(".mode-card[data-mode]").forEach((card) => {
     card.addEventListener("click", () => startGame(card.dataset.mode));
