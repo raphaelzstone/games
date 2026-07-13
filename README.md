@@ -12,11 +12,15 @@ Live at `https://raphaelzstone.github.io/games/`.
 |------|------|-----------|
 | **Abodes** | [`abodes/`](abodes/) | A daily **Tents** logic puzzle — two boards a day, an 8×8 sprint and a 14×14 marathon. |
 | **Word Split** | [`word-split/`](word-split/) | Two daily word puzzles back to back — **Combos** and **Forks**. |
+| **Staircases** | [`staircases/`](staircases/) | Three daily word puzzles — find the hidden 3-letter word that climbs through four rows. |
+| **Square Up** | [`squareup/`](squareup/) | A daily dissection puzzle — split a shape into two pieces that reassemble into a perfect square. |
 
 Each subfolder is a self-contained static site (see its own `README.md`). They
 share one Firebase project for leaderboards but keep their scores in separate
 collections, and each registers its own service worker scoped to its folder —
-so the three apps never interfere.
+so the games never interfere with each other. They also share one player
+identity (`games:user` in `localStorage` — pick a name in any game or on the
+hub and it's the same name everywhere).
 
 ## Structure
 
@@ -27,8 +31,12 @@ games/
 ├── sw.js             hub service worker (scoped to /games/, ignores subfolders)
 ├── manifest.json     hub PWA manifest
 ├── icon.svg          hub logo
-├── abodes/           the Abodes game (unchanged, moved in whole)
-└── word-split/       the Word Split game (unchanged, moved in whole)
+├── identity.js       shared arcade player identity (bird name + id)
+├── hub-board.js      "yesterday's top 3" strip, one tab per subgame
+├── abodes/           the Abodes game
+├── word-split/       the Word Split game
+├── staircases/       the Staircases game
+└── squareup/         the Square Up game
 ```
 
 The old standalone `Abodes` and `word_split` repos now just redirect here, so
@@ -41,7 +49,7 @@ and service workers resolve:
 
 ```sh
 python3 -m http.server 8000
-# open http://localhost:8000  (hub), or .../abodes/ , .../word-split/
+# open http://localhost:8000  (hub), or .../abodes/ , .../word-split/ , etc.
 ```
 
 ## Deploy (GitHub Pages)

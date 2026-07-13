@@ -51,12 +51,23 @@ const TABS = [
   { key: "staircases", label: "Staircases", coll: "staircases_scores",
     match: () => true,
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  { key: "squareup", label: "Square Up", coll: "squareup_scores",
+    match: () => true,
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
 ];
 const MEDALS = ["①", "②", "③"];
 
+// One collection failing (e.g. a brand-new game whose Firestore rule hasn't
+// been added yet) must not blank every OTHER game's tab — so each fetch is
+// caught independently and just degrades to an empty list, not a shared throw.
 async function fetchCollection(db, coll, date) {
-  const snap = await getDocs(query(collection(db, coll), where("date", "==", date)));
-  return snap.docs.map((d) => d.data());
+  try {
+    const snap = await getDocs(query(collection(db, coll), where("date", "==", date)));
+    return snap.docs.map((d) => d.data());
+  } catch (e) {
+    console.warn(`Games hub: fetching ${coll} failed`, e);
+    return [];
+  }
 }
 
 function podiumHtml(rows, tab) {

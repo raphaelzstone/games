@@ -94,6 +94,8 @@ body {
 
 .game-art-stairs { align-items: center; }
 .game-art-stairs .stairs-svg { width: 68px; height: 52px; display: block; }
+.game-art-squareup { align-items: center; }
+.game-art-squareup .squareup-svg { width: 52px; height: 52px; display: block; }
 .game-art-word { align-items: center; }
 .word-frame {
   font-family: var(--mono);
