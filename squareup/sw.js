@@ -1,6 +1,6 @@
 /* Service worker — caches the Square Up shell so it installs as a PWA and runs
  * offline. Scoped to this folder only. Bump CACHE_VERSION when assets change. */
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE = `squareup-${CACHE_VERSION}`;
 
 const SHELL = [

@@ -193,12 +193,16 @@ function buildBoard(root, shapeCells, marked, interactive) {
   if (interactive) wireBoardInput(root);
 }
 
-// --- Input: a plain tap toggles a cell between the two pieces. No drag
-// gesture is needed here, so (unlike a paint-to-mark board) a native `click`
-// listener is enough — it already unifies mouse and touch reliably. Still
-// guard against iOS Safari's double-tap-to-zoom (tapping a cell twice in a
-// row, e.g. to toggle it back, is exactly that gesture) and against wiring the
-// same persistent #board node twice (buildBoard reuses it every re-render). */
+// --- Input: click a cell to group it with the other green cells; click and
+// drag to paint a whole run at once. A drag's paint value is decided by the
+// FIRST cell it touches (whatever a plain tap would have done to it) and then
+// applied consistently to every other cell the gesture passes over — the same
+// "paint one value across a drag" approach Abodes uses for marking grass, just
+// with a value chosen per-gesture instead of a single fixed one. Guards against
+// iOS Safari's double-tap-to-zoom, and against wiring the same persistent
+// #board node twice (buildBoard reuses it every re-render).
+const DRAG_THRESHOLD = 8;   // px of movement before a press becomes a drag
+
 function wireBoardInput(root) {
   if (root.dataset.wired === "1") return;
   root.dataset.wired = "1";
@@ -212,21 +216,61 @@ function wireBoardInput(root) {
     lastTouchEnd = now;
   }, { passive: false });
 
-  root.addEventListener("click", (e) => {
+  function cellAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest("#board .cell.plot") : null;
+  }
+
+  let p = null;   // active pointer gesture
+
+  root.addEventListener("pointerdown", (e) => {
     if (!game || game.solved) return;
+    if (e.button != null && e.button !== 0 && e.pointerType === "mouse") return;
     const cell = e.target.closest(".cell.plot");
     if (!cell) return;
-    toggleCell(cell.dataset.key);
+    e.preventDefault();
+    try { root.setPointerCapture(e.pointerId); } catch {}
+    const k = cell.dataset.key;
+    p = {
+      id: e.pointerId, x: e.clientX, y: e.clientY, dragged: false,
+      startKey: k, paintValue: !game.marked.has(k), painted: new Set(),
+    };
   });
+
+  root.addEventListener("pointermove", (e) => {
+    if (!p || e.pointerId !== p.id) return;
+    if (!p.dragged && Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) return;
+    if (!p.dragged) {           // entering drag: also paint the start cell
+      p.dragged = true;
+      setCellMarked(p.startKey, p.paintValue);
+      p.painted.add(p.startKey);
+    }
+    const cell = cellAt(e.clientX, e.clientY);
+    if (!cell) return;
+    const k = cell.dataset.key;
+    if (!p.painted.has(k)) { setCellMarked(k, p.paintValue); p.painted.add(k); }
+  });
+
+  const endGesture = (e, wasRealEnd) => {
+    if (!p || e.pointerId !== p.id) return;
+    try { root.releasePointerCapture(e.pointerId); } catch {}
+    if (wasRealEnd && !p.dragged) {
+      // A plain click toggles just the one cell.
+      setCellMarked(p.startKey, p.paintValue);
+    }
+    p = null;
+    if (wasRealEnd) persist();
+  };
+  root.addEventListener("pointerup", (e) => endGesture(e, true));
+  root.addEventListener("pointercancel", (e) => endGesture(e, false));
 }
 
-function toggleCell(k) {
-  if (game.marked.has(k)) game.marked.delete(k); else game.marked.add(k);
+function setCellMarked(k, marked) {
+  if (marked) game.marked.add(k); else game.marked.delete(k);
   const cell = document.querySelector(`#board .cell[data-key="${CSS.escape(k)}"]`);
-  if (cell) cell.classList.toggle("marked", game.marked.has(k));
+  if (cell) cell.classList.toggle("marked", marked);
   $("#guess-msg").textContent = " ";
   $("#guess-msg").className = "guess-msg";
-  persist();
 }
 
 // Does the current marked set equal the puzzle's stored solution split, in
