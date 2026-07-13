@@ -396,6 +396,76 @@ function afterChange() {
 //   * clue done (greyed) when the line is fully settled — count met and no
 //     empty cells left, so there's nothing more to decide there;
 //   * a tent touching another tent (any of 8 neighbours) is flagged red.
+// Which trees are *definitely* matched to a tent given the current placement?
+//
+// Placed tents and their orthogonally-adjacent trees form a bipartite graph;
+// the real solution pairs each tent with a distinct tree. A tree is "for sure
+// done" only when it is matched in EVERY maximum matching of that graph — i.e.
+// no valid pairing of the current tents could leave it unserved. A tent shared
+// between two trees (including two trees set diagonally, both touching the one
+// tent) leaves both uncertain, so neither lights until it's forced.
+//
+// Standard result: a tree can be left unmatched by some maximum matching iff it
+// is reachable from an unmatched tree along an alternating path. So we take one
+// maximum matching, mark everything reachable that way as "still uncertain",
+// and the matched-and-unreachable trees are the certain ones.
+function doneTrees() {
+  const n = game.n;
+  const near = (i) => {
+    const r = (i / n) | 0, c = i % n, out = [];
+    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const rr = r + dr, cc = c + dc;
+      if (rr >= 0 && rr < n && cc >= 0 && cc < n) out.push(rr * n + cc);
+    }
+    return out;
+  };
+
+  const tents = [];
+  for (let i = 0; i < game.cells.length; i++) if (game.cells[i] === TENT) tents.push(i);
+
+  const treesOfTent = new Map();   // tent -> adjacent trees
+  const tentsOfTree = new Map();   // tree -> adjacent tents
+  for (const p of tents) {
+    const adj = near(p).filter((t) => game.trees.has(t));
+    treesOfTent.set(p, adj);
+    for (const t of adj) {
+      if (!tentsOfTree.has(t)) tentsOfTree.set(t, []);
+      tentsOfTree.get(t).push(p);
+    }
+  }
+
+  const matchTree = new Map();     // tree -> tent
+  const matchTent = new Map();     // tent -> tree
+  const augment = (p, seen) => {
+    for (const t of treesOfTent.get(p)) {
+      if (seen.has(t)) continue;
+      seen.add(t);
+      if (!matchTree.has(t) || augment(matchTree.get(t), seen)) {
+        matchTree.set(t, p); matchTent.set(p, t); return true;
+      }
+    }
+    return false;
+  };
+  for (const p of tents) augment(p, new Set());
+
+  // Trees reachable from an unmatched tree via alternating paths are avoidable.
+  const uncertain = new Set();
+  const queue = [];
+  for (const t of tentsOfTree.keys()) if (!matchTree.has(t)) { uncertain.add(t); queue.push(t); }
+  while (queue.length) {
+    const t = queue.shift();
+    for (const p of tentsOfTree.get(t)) {
+      if (matchTent.get(p) === t) continue;         // walk only non-matching edges out
+      const t2 = matchTent.get(p);                  // then the matching edge back to a tree
+      if (t2 != null && !uncertain.has(t2)) { uncertain.add(t2); queue.push(t2); }
+    }
+  }
+
+  const done = new Set();
+  for (const t of tentsOfTree.keys()) if (matchTree.has(t) && !uncertain.has(t)) done.add(t);
+  return done;
+}
+
 function refreshState() {
   const n = game.n;
   const rowTents = new Array(n).fill(0), colTents = new Array(n).fill(0);
@@ -435,18 +505,11 @@ function refreshState() {
     if (cell) cell.classList.toggle("conflict", bad);
   }
 
-  // Dim each tree that now has a tent orthogonally beside it, so it's clear at a
-  // glance which trees still need one.
+  // Light up every tree that is *certainly* matched to a tent — see doneTrees().
+  const done = doneTrees();
   for (const t of game.trees) {
-    const r = (t / n) | 0, c = t % n;
-    let served = false;
-    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
-      const rr = r + dr, cc = c + dc;
-      if (rr < 0 || rr >= n || cc < 0 || cc >= n) continue;
-      if (game.cells[rr * n + cc] === TENT) { served = true; break; }
-    }
     const cell = document.querySelector(`#board .cell[data-idx="${t}"]`);
-    if (cell) cell.classList.toggle("served", served);
+    if (cell) cell.classList.toggle("done", done.has(t));
   }
 
   // Tent counter in the game bar.
