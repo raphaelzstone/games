@@ -113,6 +113,7 @@ const views = {
 function showView(name) {
   for (const [k, el] of Object.entries(views)) el.hidden = k !== name;
   $("#home-btn").hidden = name === "menu";
+  $("#hub-btn").hidden = name !== "menu";   // "All games" only on the menu
 }
 
 // --- Storage ----------------------------------------------------------------
