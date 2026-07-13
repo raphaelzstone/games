@@ -1,0 +1,49 @@
+# Deploys Word Split to GitHub Pages. On every push to main this rewrites the
+# service worker's CACHE_VERSION to the commit SHA, so the SW always detects
+# the new build and prompts installed users to reload — no more "forgot to
+# bump v1 -> v2" stale-cache footguns.
+#
+# One-time setup: in repo Settings -> Pages, switch the source from
+# "Deploy from a branch" to "GitHub Actions".
+name: Deploy to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bump CACHE_VERSION to commit SHA
+        run: |
+          sed -i 's|const CACHE_VERSION = .*|const CACHE_VERSION = "${{ github.sha }}";|' sw.js
+          grep CACHE_VERSION sw.js
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

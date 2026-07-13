@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#b8cab0" />
+  <title>Word Split</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <button id="home-btn" class="home-btn" hidden>&larr; Menu</button>
+      <h1 class="logo">Word&nbsp;Split</h1>
+      <div class="date" id="date-label"></div>
+    </header>
+
+    <!-- MENU ------------------------------------------------------------- -->
+    <section id="view-menu" class="view">
+      <p class="who">
+        Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button>
+        <span id="streak" class="streak" hidden></span>
+      </p>
+      <p class="tagline">Two word puzzles. A fresh set every day.</p>
+      <div class="menu-cards">
+        <button class="mode-card" data-mode="combos">
+          <span class="mode-title">Combos</span>
+          <span class="mode-frame">exp<span class="blank">__</span>t</span>
+          <span class="mode-desc">Find every two-letter fill that makes a word.</span>
+          <span class="mode-status" id="status-combos"></span>
+        </button>
+        <button class="mode-card" data-mode="forks">
+          <span class="mode-title">Forks</span>
+          <span class="mode-split"><span class="stack"><span>EE</span><span>OO</span></span></span>
+          <span class="mode-desc">Given the split, find the one shared word.</span>
+          <span class="mode-status" id="status-forks"></span>
+        </button>
+      </div>
+      <div class="menu-actions">
+        <button id="menu-share-btn" class="primary-btn" hidden>Copy results</button>
+        <button id="menu-board-btn" class="ghost-btn">🏆 Leaderboard</button>
+      </div>
+      <p class="copied-toast" id="menu-copied-toast" hidden>Copied to clipboard!</p>
+    </section>
+
+    <!-- GAME ------------------------------------------------------------- -->
+    <section id="view-game" class="view" hidden>
+      <div class="gamebar">
+        <span class="progress-pill" id="progress-pill">Round 1 of 2</span>
+        <span class="countdown" id="countdown">1:30</span>
+      </div>
+      <p class="rules" id="rules-text"></p>
+      <div id="puzzles" class="puzzles"></div>
+      <button id="skip-btn" class="ghost-btn">Skip puzzle</button>
+    </section>
+
+    <!-- RESULTS ---------------------------------------------------------- -->
+    <section id="view-results" class="view" hidden>
+      <h2 id="results-title">Done!</h2>
+      <div class="final-score" id="final-score">0</div>
+      <div class="final-score-label">points</div>
+      <ul class="result-rows" id="result-rows"></ul>
+      <div id="reveal-block" class="reveal-block"></div>
+      <div class="result-actions">
+        <button id="results-menu-btn" class="primary-btn">Back to menu</button>
+      </div>
+    </section>
+
+    <!-- LEADERBOARD ------------------------------------------------------ -->
+    <section id="view-board" class="view" hidden>
+      <h2 class="board-title">Leaderboard</h2>
+      <div id="board-content" class="board-content"></div>
+      <div class="result-actions">
+        <button id="board-menu-btn" class="ghost-btn">Back to menu</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="puzzles.js"></script>
+  <script src="birds.js"></script>
+  <script src="firebase-config.js"></script>
+  <script type="module" src="leaderboard.js"></script>
+  <script src="app.js"></script>
+  <script>
+    /* Register the service worker (PWA install + offline shell). New versions
+     * install on the next visit and take over silently — players pick up the
+     * fresh code the next time they open the app. */
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => { /* ignore */ });
+      });
+    }
+  </script>
+</body>
+</html>
