@@ -327,6 +327,18 @@ function plotCellAt(x, y) {
 }
 
 function wireBoardInput(root) {
+  // buildGrid() reuses the same #board DOM node across every render (it only
+  // clears innerHTML), and used to call wireBoardInput() again each time — e.g.
+  // "Clear board" — stacking a fresh, independent set of pointer listeners on
+  // top of the old ones every time. With N stacked listener-sets, a single tap
+  // fired the tap-cycle N times (scrambling grass/tent/empty order or, with an
+  // even N, cancelling itself out to look like "nothing happened"), and a
+  // single clue-number click ran onClueClick() N times in a row (fill-then-
+  // immediately-unfill on even N). Guard so wiring only ever happens once per
+  // node, no matter how many times the board is rebuilt.
+  if (root.dataset.wired === "1") return;
+  root.dataset.wired = "1";
+
   let p = null;                 // active pointer gesture
   let lastTouchTime = 0;        // guards against ghost mouse events after a touch
 
