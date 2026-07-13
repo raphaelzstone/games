@@ -1,0 +1,117 @@
+/* Games hub — "yesterday's top 3" board (ES module).
+ *
+ * A small, unobtrusive strip on the landing page: one tab per subgame, each
+ * showing the top three finishers from *yesterday*. It only reads Firestore
+ * (reads are open on both collections), so no writes and no auth.
+ *
+ * The four subgames live in two collections with different score senses:
+ *   - Abodes  → `abodes_scores`, ranked by fastest time (seconds, lower wins).
+ *               Hard boards carry mode:"hard"; normal boards have no mode.
+ *   - Word Split → `scores`, ranked by points (score, higher wins), with
+ *               mode:"combos" | "forks".
+ * Each collection is fetched once for yesterday's date, then split/sorted per
+ * tab in the client — a single date-equality query, no composite index. */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, collection, query, where, getDocs,
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Local date key (matches how both games stamp their scores), offset in days.
+function dateKeyOffset(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+function fmtTime(sec) {
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]));
+}
+
+// Each tab: which collection, which rows belong to it, and how it ranks.
+const TABS = [
+  { key: "abodes-normal", label: "Abodes 8×8", coll: "abodes_scores",
+    match: (r) => (r.mode || "normal") === "normal",
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  { key: "abodes-hard", label: "Abodes 14×14", coll: "abodes_scores",
+    match: (r) => r.mode === "hard",
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  { key: "combos", label: "Combos", coll: "scores",
+    match: (r) => r.mode === "combos",
+    rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
+  { key: "forks", label: "Forks", coll: "scores",
+    match: (r) => r.mode === "forks",
+    rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
+];
+const MEDALS = ["①", "②", "③"];
+
+async function fetchCollection(db, coll, date) {
+  const snap = await getDocs(query(collection(db, coll), where("date", "==", date)));
+  return snap.docs.map((d) => d.data());
+}
+
+function podiumHtml(rows, tab) {
+  if (!rows.length) return `<div class="mini-empty">No times yet.</div>`;
+  const top = [...rows].sort(tab.rank).slice(0, 3);
+  return `<ol class="mini-list">` + top.map((r, i) =>
+    `<li class="mini-row">` +
+      `<span class="mini-rank">${MEDALS[i]}</span>` +
+      `<span class="mini-name">${escapeHtml(r.name || "—")}</span>` +
+      `<span class="mini-score">${tab.value(r)}</span>` +
+    `</li>`).join("") + `</ol>`;
+}
+
+async function init() {
+  const section = document.getElementById("mini-board");
+  const cfg = window.GamesFirebaseConfig;
+  if (!section || !cfg || !cfg.apiKey) return;   // silently stay hidden
+
+  let db;
+  try { db = getFirestore(initializeApp(cfg)); }
+  catch { return; }
+
+  const date = dateKeyOffset(1);
+  document.getElementById("mini-board-date").textContent = date;
+
+  let byColl;
+  try {
+    const [abodes, scores] = await Promise.all([
+      fetchCollection(db, "abodes_scores", date),
+      fetchCollection(db, "scores", date),
+    ]);
+    byColl = { abodes_scores: abodes, scores };
+  } catch {
+    return;   // network/Firestore hiccup — leave the strip hidden
+  }
+
+  const panels = TABS.map((t) => {
+    const rows = (byColl[t.coll] || []).filter(t.match);
+    return podiumHtml(rows, t);
+  });
+
+  document.getElementById("mini-tabs").innerHTML = TABS.map((t, i) =>
+    `<button class="mini-tab${i === 0 ? " active" : ""}" data-i="${i}" role="tab">${t.label}</button>`
+  ).join("");
+  const panelBox = document.getElementById("mini-panels");
+  panelBox.innerHTML = panels.map((p, i) =>
+    `<div class="mini-panel${i === 0 ? " active" : ""}" data-i="${i}">${p}</div>`
+  ).join("");
+
+  document.getElementById("mini-tabs").addEventListener("click", (e) => {
+    const btn = e.target.closest(".mini-tab");
+    if (!btn) return;
+    const i = btn.dataset.i;
+    document.querySelectorAll(".mini-tab").forEach((b) => b.classList.toggle("active", b.dataset.i === i));
+    panelBox.querySelectorAll(".mini-panel").forEach((p) => p.classList.toggle("active", p.dataset.i === i));
+  });
+
+  section.hidden = false;
+}
+
+init();

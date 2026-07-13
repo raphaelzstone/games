@@ -53,8 +53,22 @@
       </a>
     </div>
 
+    <!-- Yesterday's podium — small, one tab per subgame. Hidden until the
+         board loads (and stays hidden if Firebase is unreachable). -->
+    <section class="mini-board" id="mini-board" hidden>
+      <div class="mini-head">
+        <span class="mini-title">Yesterday's top 3</span>
+        <span class="mini-date" id="mini-board-date"></span>
+      </div>
+      <div class="mini-tabs" id="mini-tabs" role="tablist"></div>
+      <div class="mini-panels" id="mini-panels"></div>
+    </section>
+
     <p class="footnote">More games coming. Each keeps its own daily puzzle, leaderboard, and streak.</p>
   </main>
+
+  <script src="firebase-config.js"></script>
+  <script type="module" src="hub-board.js"></script>
 
   <script>
     /* Register the service worker (PWA install + offline shell). Scoped to this
