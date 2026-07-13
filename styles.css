@@ -92,6 +92,8 @@ body {
 .game-art { display: flex; gap: 8px; align-items: flex-end; height: 52px; }
 .art-glyph { width: 46px; height: 46px; display: block; }
 
+.game-art-stairs { align-items: center; }
+.game-art-stairs .stairs-svg { width: 68px; height: 52px; display: block; }
 .game-art-word { align-items: center; }
 .word-frame {
   font-family: var(--mono);

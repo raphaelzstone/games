@@ -48,6 +48,9 @@ const TABS = [
   { key: "forks", label: "Forks", coll: "scores",
     match: (r) => r.mode === "forks",
     rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
+  { key: "staircases", label: "Staircases", coll: "staircases_scores",
+    match: () => true,
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
 ];
 const MEDALS = ["①", "②", "③"];
 
@@ -79,13 +82,12 @@ async function init() {
   const date = dateKeyOffset(1);
   document.getElementById("mini-board-date").textContent = date;
 
+  // Fetch each distinct collection the tabs need, once.
+  const colls = [...new Set(TABS.map((t) => t.coll))];
   let byColl;
   try {
-    const [abodes, scores] = await Promise.all([
-      fetchCollection(db, "abodes_scores", date),
-      fetchCollection(db, "scores", date),
-    ]);
-    byColl = { abodes_scores: abodes, scores };
+    const results = await Promise.all(colls.map((c) => fetchCollection(db, c, date)));
+    byColl = Object.fromEntries(colls.map((c, i) => [c, results[i]]));
   } catch {
     return;   // network/Firestore hiccup — leave the strip hidden
   }
