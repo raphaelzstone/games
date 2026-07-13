@@ -19,6 +19,8 @@
       </span>
     </header>
 
+    <p class="who">Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button></p>
+
     <p class="tagline">A little arcade of daily logic puzzles. A fresh set every day, the same for everyone — race the clock, keep your streak.</p>
 
     <div class="cards">
@@ -67,6 +69,22 @@
     <p class="footnote">More games coming. Each keeps its own daily puzzle, leaderboard, and streak.</p>
   </main>
 
+  <script src="identity.js"></script>
+  <script>
+    /* Show the shared bird name and let players rename from the hub — the same
+     * identity the games use, so a change here shows up everywhere. */
+    (function () {
+      var nameEl = document.getElementById("player-name");
+      nameEl.textContent = window.GamesUser.getOrCreateUser().name;
+      document.getElementById("name-btn").addEventListener("click", function () {
+        var cur = window.GamesUser.getOrCreateUser().name;
+        var next = window.prompt("Pick a username (or leave blank to randomize):", cur);
+        if (next === null) return;
+        var name = next.trim() ? next : window.GamesUser.randomBirdName();
+        nameEl.textContent = window.GamesUser.setUserName(name).name;
+      });
+    })();
+  </script>
   <script src="firebase-config.js"></script>
   <script type="module" src="hub-board.js"></script>
 

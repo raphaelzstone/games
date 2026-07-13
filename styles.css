@@ -41,6 +41,20 @@ body {
   font-weight: 800;
 }
 
+.who { text-align: center; color: var(--muted); margin: 0 0 6px; font-size: 13px; }
+.name-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.name-btn:hover { background: rgba(0,0,0,.05); }
+.name-btn .pencil { color: var(--muted); font-size: 12px; margin-left: 2px; }
+
 .tagline {
   text-align: center;
   color: var(--muted);

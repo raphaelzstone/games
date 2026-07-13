@@ -5,7 +5,7 @@
  *
  * Strategy: cache-first for same-scope GETs, falling back to network. Requests
  * for the game subfolders are left to the network / their own workers. */
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const CACHE = `games-hub-${CACHE_VERSION}`;
 
 const SHELL = [
@@ -14,6 +14,7 @@ const SHELL = [
   "./styles.css",
   "./manifest.json",
   "./icon.svg",
+  "./identity.js",
   "./firebase-config.js",
   "./hub-board.js",
 ];
