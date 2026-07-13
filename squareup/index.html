@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#b8cab0" />
+  <title>Square Up</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <span class="topbar-left">
+        <a id="hub-btn" class="home-btn hub-btn" href="../">&larr; All games</a>
+        <button id="home-btn" class="home-btn" hidden>&larr; Menu</button>
+      </span>
+      <h1 class="logo">Square Up</h1>
+      <div class="date" id="date-label"></div>
+    </header>
+
+    <!-- MENU ------------------------------------------------------------- -->
+    <section id="view-menu" class="view">
+      <p class="who">
+        Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button>
+      </p>
+      <p class="tagline">One shape a day. Split it into two pieces that fit back together into a perfect square.</p>
+      <div class="menu-cards">
+        <button class="mode-card" id="play-card">
+          <span class="mode-title">Today's Shape</span>
+          <span class="mode-art" id="menu-art"></span>
+          <span class="mode-desc">Cut it into two pieces — rotate or flip either one — that reassemble into a solid 5×5 square.</span>
+          <span class="mode-status" id="status-daily"></span>
+        </button>
+      </div>
+      <div class="menu-actions">
+        <button id="menu-share-btn" class="primary-btn" hidden>Copy result</button>
+        <button id="menu-rules-btn" class="ghost-btn rules-toggle" aria-expanded="false" aria-controls="rules-box">How to play <span class="caret">▾</span></button>
+        <button id="menu-board-btn" class="ghost-btn">🏆 Leaderboard</button>
+      </div>
+      <p class="copied-toast" id="menu-copied-toast" hidden>Copied to clipboard!</p>
+
+      <div id="rules-box" class="rules-box" hidden>
+        <p class="rules-goal">Every day's shape is exactly <b>25 squares</b> — cut from a 5×5 square, with one piece moved. Find the <b>one</b> way to split it back into two pieces that reform the square (pieces may rotate and/or flip).</p>
+        <div id="rules-diagram" class="rules-diagram"></div>
+        <ul>
+          <li><b>Tap</b> a cell to toggle which piece it belongs to — the two piece colors update live.</li>
+          <li>There's exactly <b>one</b> correct split. Hit <b>Check</b> once you think you've found it.</li>
+          <li>One puzzle a day. Your score is your time — lower is better. Stuck? <b>Reveal</b> costs a 30-second penalty.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- GAME ------------------------------------------------------------- -->
+    <section id="view-game" class="view" hidden>
+      <div class="gamebar">
+        <span class="progress-pill" id="progress-pill">Split it in two</span>
+        <span class="countdown" id="timer">0:00</span>
+      </div>
+      <p class="rules">Tap a cell to swap it between the two pieces.</p>
+      <div id="board" class="board"></div>
+      <p class="guess-msg" id="guess-msg">&nbsp;</p>
+      <div class="game-actions">
+        <button id="check-btn" class="primary-btn">Check</button>
+        <button id="reveal-btn" class="ghost-btn">Reveal (+0:30)</button>
+      </div>
+    </section>
+
+    <!-- RESULTS ---------------------------------------------------------- -->
+    <section id="view-results" class="view" hidden>
+      <h2 id="results-title">Solved!</h2>
+      <div class="final-score" id="final-time">0:00</div>
+      <div class="final-score-label">your time</div>
+      <p class="reveal-label">The two pieces, reassembled:</p>
+      <div id="solved-board" class="board solved-board"></div>
+      <div class="result-actions">
+        <button id="results-share-btn" class="primary-btn">Copy result</button>
+        <button id="results-menu-btn" class="ghost-btn">Back to menu</button>
+      </div>
+      <p class="copied-toast" id="results-copied-toast" hidden>Copied to clipboard!</p>
+    </section>
+
+    <!-- LEADERBOARD ------------------------------------------------------ -->
+    <section id="view-board" class="view" hidden>
+      <h2 class="board-title">Leaderboard</h2>
+      <div id="board-content" class="board-content"></div>
+      <div class="result-actions">
+        <button id="board-menu-btn" class="ghost-btn">Back to menu</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="puzzles.js"></script>
+  <script src="identity.js"></script>
+  <script src="firebase-config.js"></script>
+  <script type="module" src="leaderboard.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
