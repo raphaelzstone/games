@@ -1,10 +1,10 @@
-/* Staircases leaderboard — daily fastest-time rankings, backed by Firestore.
+/* Staircases leaderboard — daily highest-score rankings, backed by Firestore.
  *
  * Loaded as an ES module so it can import the Firebase modular SDK from the CDN.
  * Exposes the window.Leaderboard interface app.js expects:
  *   - configured     true once Firebase initialised from window.StaircasesFirebaseConfig
- *   - submitScore()  best-effort write of one (user, date) -> seconds result
- *   - fetchBoard()   read all results for a date (app.js sorts by fastest)
+ *   - submitScore()  best-effort write of one (user, date) -> score result
+ *   - fetchBoard()   read all results for a date (app.js sorts by highest score)
  *
  * Scores live in their own collection (staircases_scores), keyed by
  * `${date}_${userId}`, so there's one row per player per day and Staircases
@@ -25,18 +25,18 @@ if (cfg && cfg.apiKey) {
   catch (e) { console.warn("Staircases leaderboard: Firebase init failed", e); }
 }
 
-async function submitScore({ userId, name, date, seconds }) {
+async function submitScore({ userId, name, date, score }) {
   if (!db) return;
   try {
     await setDoc(doc(db, COLLECTION, `${date}_${userId}`), {
-      userId, name, date, seconds, createdAt: serverTimestamp(),
+      userId, name, date, score, createdAt: serverTimestamp(),
     });
   } catch (e) {
     console.warn("Staircases leaderboard: submit failed", e);
   }
 }
 
-// Returns an array of { userId, name, date, seconds } for the day, or null on
+// Returns an array of { userId, name, date, score } for the day, or null on
 // failure. Sorting is left to the caller. One `where` keeps this on Firestore's
 // automatic single-field index — no composite index to set up.
 async function fetchBoard(date) {

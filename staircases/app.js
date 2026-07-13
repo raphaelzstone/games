@@ -8,13 +8,34 @@
  * trigram occupies columns r..r+2, the other three cells are shown. Find the
  * single 3-letter string that completes all four rows.
  *
- * It's a race against the clock: one count-up timer across all three puzzles;
- * your total time is the score (lower is better). A Reveal costs +30s. Results
- * persist per day and copy as a spoiler-free summary.
+ * Each puzzle is a 1:30 countdown worth up to 500 points (Word Split's Combos
+ * scoring): full value in the first 0:15, sliding down to a 300-point floor by
+ * 1:15, flat for the last 0:15. Run out the clock without solving it and that
+ * puzzle scores 0 — the round ends and the answer is revealed automatically.
+ * Three rounds, 1500 points max, higher is better. Results persist per day and
+ * copy as a spoiler-free summary.
  * ========================================================================= */
 
 const ROUNDS = 3;
-const REVEAL_PENALTY = 30;   // seconds added for revealing a puzzle
+const ROUND_LIMIT_SEC = 90;     // 1:30 per puzzle
+const ROUND_FREE_SEC = 15;      // full value if solved within the first 0:15
+const ROUND_FLOOR_SEC = 75;     // floor reached here (1:15) — flat for the last 0:15
+const ROUND_FULL_POINTS = 500;
+const ROUND_FLOOR_POINTS = 300;
+const MAX_SCORE = ROUNDS * ROUND_FULL_POINTS;   // 1500
+
+// Points for a round solved at `sec` into its countdown; 0 if not solved
+// (timed out). Mirrors Word Split's Combos time-value curve, just with a
+// 300 (not 400) floor and no found/total fraction — Staircases rounds are an
+// all-or-nothing single guess, not partial fills.
+function roundScore(solved, sec) {
+  if (!solved) return 0;
+  if (sec <= ROUND_FREE_SEC) return ROUND_FULL_POINTS;
+  if (sec >= ROUND_FLOOR_SEC) return ROUND_FLOOR_POINTS;
+  return Math.round(
+    ROUND_FULL_POINTS - (ROUND_FULL_POINTS - ROUND_FLOOR_POINTS) *
+    (sec - ROUND_FREE_SEC) / (ROUND_FLOOR_SEC - ROUND_FREE_SEC));
+}
 
 // --- Seeded RNG (mulberry32) ------------------------------------------------
 function hashString(str) {
@@ -130,21 +151,26 @@ function startGame() {
   game = {
     puzzles,
     round: 0,
-    done: puzzles.map(() => null),   // per puzzle: "solved" | "revealed" | null
-    penalty: 0,
-    startMs: performance.now(),
-    elapsedBefore: 0,
+    scores: new Array(ROUNDS).fill(null),   // points earned per round, null = not yet done
+    done: new Array(ROUNDS).fill(null),     // 'solved' | 'timeout' | null
+    startMs: performance.now(),             // start of the CURRENT round
+    elapsedBefore: 0,                       // resumed elapsed-in-round, if any
     tickId: null,
     lastPersist: 0,
   };
   if (saved && Array.isArray(saved.done) && saved.done.length === ROUNDS) {
     game.done = saved.done;
-    game.penalty = saved.penalty || 0;
-    game.elapsedBefore = saved.elapsed || 0;
+    game.scores = Array.isArray(saved.scores) && saved.scores.length === ROUNDS
+      ? saved.scores : game.scores;
     game.round = Math.min(saved.round || 0, ROUNDS - 1);
-    // Skip forward over any already-finished puzzles.
+    // Skip forward over any already-finished rounds (defensive; shouldn't
+    // normally happen since finishing a round always advances immediately).
     while (game.round < ROUNDS && game.done[game.round]) game.round++;
     if (game.round >= ROUNDS) { finishGame(); return; }
+    // Resuming mid-round: clamp so a very stale save can't show negative time
+    // — instead the first timer tick immediately times the round out, which
+    // is the correct behaviour for a real countdown you walked away from.
+    game.elapsedBefore = Math.min(saved.elapsed || 0, ROUND_LIMIT_SEC);
   }
   showView("game");
   game.tickId = setInterval(updateTimer, 250);
@@ -152,28 +178,31 @@ function startGame() {
   updateTimer();
 }
 
-function elapsedSec() {
-  return game.elapsedBefore + (performance.now() - game.startMs) / 1000 + game.penalty;
+function roundElapsedSec() {
+  return game.elapsedBefore + (performance.now() - game.startMs) / 1000;
 }
 function updateTimer() {
-  $("#timer").textContent = fmtElapsed(elapsedSec());
+  const remaining = Math.max(0, ROUND_LIMIT_SEC - roundElapsedSec());
+  const timerEl = $("#timer");
+  timerEl.textContent = fmtElapsed(remaining);
+  timerEl.classList.toggle("urgent", remaining > 0 && remaining <= 15);
+  if (remaining <= 0 && !game.done[game.round]) { onTimeout(); return; }
   if (performance.now() - game.lastPersist > 4000) persist();
 }
 function persist() {
   if (!game) return;
   game.lastPersist = performance.now();
-  saveProgress({
-    round: game.round, done: game.done, penalty: game.penalty, elapsed: elapsedSec() - game.penalty,
-  });
+  saveProgress({ round: game.round, scores: game.scores, done: game.done, elapsed: roundElapsedSec() });
 }
 
-// Render the current puzzle's grid + reset the guess box.
+// Render the current puzzle's grid + reset the guess box + restart the round
+// clock (unless we're resuming, in which case elapsedBefore is already set).
 function renderRound() {
   const p = game.puzzles[game.round];
   $("#progress-pill").textContent = `Puzzle ${game.round + 1} of ${ROUNDS}`;
-  $("#reveal-btn").disabled = false;
-  const msg = $("#guess-msg"); msg.textContent = " "; msg.className = "guess-msg";
+  const msg = $("#guess-msg"); msg.textContent = " "; msg.className = "guess-msg";
   const input = $("#guess-input"); input.value = ""; input.disabled = false;
+  $("#timer").classList.remove("urgent");
 
   buildGrid(p, "");
   // Focus to summon the mobile keyboard (best-effort).
@@ -215,7 +244,7 @@ function submitGuess(e) {
   const guess = $("#guess-input").value.replace(/[^a-zA-Z]/g, "").toLowerCase();
   if (guess.length < 3) { flashMsg("Type all three letters", "warn"); return; }
   if (guess === game.puzzles[game.round].a) {
-    solveRound("solved");
+    finishRound("solved");
   } else {
     flashMsg("Not quite — try again", "warn");
     const input = $("#guess-input");
@@ -223,29 +252,35 @@ function submitGuess(e) {
   }
 }
 
-function revealRound() {
-  if (!game || game.done[game.round]) return;
-  game.penalty += REVEAL_PENALTY;
-  solveRound("revealed");
+// The countdown reached 0 before a correct guess: the round scores 0 and the
+// answer is revealed automatically — no manual reveal/skip, matching a real
+// timed round.
+function onTimeout() {
+  finishRound("timeout");
 }
 
-// Fill in the answer, mark the puzzle, briefly show it, then advance.
-function solveRound(how) {
+// Fill in the answer, score the round, briefly show it, then advance.
+function finishRound(how) {
+  const sec = roundElapsedSec();
+  const points = roundScore(how === "solved", sec);
   game.done[game.round] = how;
+  game.scores[game.round] = points;
+
   const p = game.puzzles[game.round];
   buildGrid(p, p.a);                        // fill blanks with the answer
   $("#grid").querySelectorAll(".blank").forEach((el) => el.classList.add(how));
   $("#guess-input").value = p.a.toUpperCase();
   $("#guess-input").disabled = true;
-  $("#reveal-btn").disabled = true;
-  flashMsg(how === "solved" ? "Solved!" : `It was ${p.a.toUpperCase()}`,
+  flashMsg(how === "solved" ? `Solved! +${points}` : `Time's up — it was ${p.a.toUpperCase()}`,
            how === "solved" ? "good" : "reveal");
   persist();
   setTimeout(() => {
     game.round++;
+    game.startMs = performance.now();
+    game.elapsedBefore = 0;
     if (game.round >= ROUNDS) finishGame();
     else renderRound();
-  }, how === "solved" ? 800 : 1200);
+  }, how === "solved" ? 800 : 1400);
 }
 
 function flashMsg(text, cls) {
@@ -256,18 +291,18 @@ function flashMsg(text, cls) {
 
 function finishGame() {
   if (game.tickId) { clearInterval(game.tickId); game.tickId = null; }
-  const seconds = Math.round(elapsedSec());
+  const score = game.scores.reduce((a, b) => a + (b || 0), 0);
   const solved = game.done.filter((d) => d === "solved").length;
   const result = {
-    date: dateKey(), seconds, solved, total: ROUNDS,
-    answers: game.puzzles.map((p) => p.a), done: game.done.slice(),
+    date: dateKey(), score, total: MAX_SCORE, solved, rounds: ROUNDS,
+    answers: game.puzzles.map((p) => p.a), done: game.done.slice(), scores: game.scores.slice(),
   };
   saveResult(result);
   clearProgress();
   bumpStreak();
   const user = window.StaircasesUser.getOrCreateUser();
   window.Leaderboard?.submitScore?.({
-    userId: user.id, name: user.name, date: result.date, seconds: result.seconds,
+    userId: user.id, name: user.name, date: result.date, score: result.score,
   });
   renderResults(result, false);
 }
@@ -282,12 +317,13 @@ function stopGame() {
  * ========================================================================= */
 function renderResults(result, replay) {
   $("#results-title").textContent = replay ? "Already played today" : "Nice climb!";
-  $("#final-time").textContent = fmtElapsed(result.seconds);
-  $("#final-label").textContent = `your time · ${result.solved}/${result.total} solved`;
+  $("#final-time").textContent = result.score;
+  $("#final-label").textContent = `points · ${result.solved}/${result.rounds} solved`;
   // Per-puzzle recap (spoiler: shows the answers, but you've finished).
   const rows = (result.answers || []).map((a, i) => {
     const how = (result.done || [])[i];
-    const tag = how === "solved" ? "✓" : "revealed";
+    const pts = (result.scores || [])[i] || 0;
+    const tag = how === "solved" ? `+${pts}` : "0 (timed out)";
     return `<li class="result-row"><span class="r-word">${a.toUpperCase()}</span>` +
            `<span class="r-tag ${how}">${tag}</span></li>`;
   }).join("");
@@ -301,7 +337,7 @@ function buildShareText() {
   const streak = currentStreak();
   const tail = streak >= 2 ? `  🔥 ${streak}` : "";
   const marks = (res.done || []).map((d) => (d === "solved" ? "🟩" : "⬜")).join("");
-  return `Staircases — ${res.date}\n${marks}  ⏱ ${fmtElapsed(res.seconds)} (${res.solved}/${res.total})${tail}`;
+  return `Staircases — ${res.date}\n${marks}  ${res.score}/${res.total}${tail}`;
 }
 
 async function copyToClipboard(text) {
@@ -330,23 +366,23 @@ function refreshMenu() {
   const res = loadResult();
   const prog = loadProgress();
   $("#status-daily").textContent = res
-    ? `Played today · ${fmtElapsed(res.seconds)} · ${res.solved}/${res.total}`
+    ? `Played today · ${res.score}/${res.total} · ${res.solved}/${res.rounds} solved`
     : (prog ? "In progress…" : "Not played today");
   $("#menu-share-btn").hidden = !res;
   $("#menu-art").innerHTML = miniStaircase();
 }
 
-// One leaderboard panel: players ranked by fastest time.
+// One leaderboard panel: players ranked by highest score.
 function renderBoardPanel(title, rows, myId) {
   if (!rows) return `<div class="board-panel"><h3>${title}</h3><div class="board-empty">—</div></div>`;
-  if (!rows.length) return `<div class="board-panel"><h3>${title}</h3><div class="board-empty">No times yet.</div></div>`;
-  const sorted = [...rows].sort((a, b) => a.seconds - b.seconds);
+  if (!rows.length) return `<div class="board-panel"><h3>${title}</h3><div class="board-empty">No scores yet.</div></div>`;
+  const sorted = [...rows].sort((a, b) => b.score - a.score);
   const lis = sorted.map((r, i) => {
     const me = r.userId === myId ? " me" : "";
     return `<li class="board-row${me}">` +
            `<span class="board-rank">${i + 1}</span>` +
            `<span class="board-name">${escapeHtml(r.name || "—")}</span>` +
-           `<span class="board-score">${fmtElapsed(r.seconds)}</span></li>`;
+           `<span class="board-score">${r.score}</span></li>`;
   }).join("");
   return `<div class="board-panel"><h3>${title}</h3><ol class="board-list">${lis}</ol></div>`;
 }
@@ -419,7 +455,6 @@ function init() {
   });
   $("#guess-input").addEventListener("input", onInput);
   $("#guess-form").addEventListener("submit", submitGuess);
-  $("#reveal-btn").addEventListener("click", revealRound);
   $("#menu-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#menu-copied-toast"); });
   $("#results-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#results-copied-toast"); });
 

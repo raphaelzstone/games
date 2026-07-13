@@ -19,10 +19,14 @@ generate it.
 
 ## Scoring
 
-One count-up timer runs across all three daily puzzles; your total time is the
-score (lower is better). Stuck on one? **Reveal** shows the answer for a
-**+30 second** penalty and moves you on. Results persist per day and copy as a
-spoiler-free summary (time + solved/revealed marks, never the words).
+Each puzzle is its own **1:30 countdown**, worth up to **500 points** — the
+same time-value curve as Word Split's Combos: full value in the first 0:15,
+sliding down to a 300-point floor by 1:15, flat for the last 0:15. Run the
+clock out without solving it and that puzzle scores **0** — the round ends
+automatically and the answer is revealed. Three puzzles, **1500 points** max;
+higher is better. There's no manual reveal/skip — it's a real timed round, not
+a stopwatch you can pause. Results persist per day and copy as a spoiler-free
+summary (score + solved marks, never the words).
 
 ## Files
 
@@ -76,13 +80,14 @@ games' rules:
 match /staircases_scores/{docId} {
   allow read: if true;
   allow create, update: if
-    request.resource.data.keys().hasOnly(['userId','name','date','seconds','createdAt'])
+    request.resource.data.keys().hasOnly(['userId','name','date','score','createdAt'])
     && request.resource.data.userId is string
     && request.resource.data.name is string
     && request.resource.data.name.size() <= 20
     && request.resource.data.date is string
-    && request.resource.data.seconds is number
-    && request.resource.data.seconds > 0
+    && request.resource.data.score is number
+    && request.resource.data.score >= 0
+    && request.resource.data.score <= 1500
     && docId == request.resource.data.date + '_' + request.resource.data.userId;
   allow delete: if false;
 }
@@ -90,4 +95,9 @@ match /staircases_scores/{docId} {
 
 Same casual-game posture as the other games: open writes, shape-validated, no
 delete. Once added, the menu's 🏆 Leaderboard shows Today and Yesterday ranked
-by fastest time, with your own row highlighted.
+by highest score, with your own row highlighted.
+
+**Note:** this collection's rule shape changed from an earlier version of
+Staircases (which scored elapsed time, field `seconds`) to points (field
+`score`, capped at 1500) — if you already added the old rule, replace it with
+this one rather than adding a second block.

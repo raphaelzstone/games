@@ -25,12 +25,12 @@
       <p class="who">
         Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button>
       </p>
-      <p class="tagline">Three word puzzles a day. Find the 3-letter word that climbs through all four rows.</p>
+      <p class="tagline">Three word puzzles a day. Find the 3-letter word that climbs through all four rows before the clock runs out.</p>
       <div class="menu-cards">
         <button class="mode-card" id="play-card">
           <span class="mode-title">Today's Climb</span>
           <span class="mode-art" id="menu-art"></span>
-          <span class="mode-desc">Three staircases. One hidden 3-letter word each. Solve them as fast as you can.</span>
+          <span class="mode-desc">Three staircases, 1:30 each. One hidden 3-letter word each — the faster you solve it, the more it's worth.</span>
           <span class="mode-status" id="status-daily"></span>
         </button>
       </div>
@@ -47,7 +47,7 @@
         <ul>
           <li>The blanks <b>step down one square each row</b> — a staircase. The same three letters go in each row.</li>
           <li>Type your 3-letter guess; the rows fill in live so you can see the words take shape.</li>
-          <li>Three puzzles a day. Your score is the total time — lower is better. Stuck? <b>Reveal</b> costs a 30-second penalty.</li>
+          <li>Each puzzle is <b>1:30</b> on the clock and worth up to <b>500 points</b>: full value in the first 0:15, sliding down to a 300-point floor by 1:15, then flat for the last 0:15. Run out the clock without solving it and that puzzle scores 0. Three puzzles, <b>1500 points</b> max — higher is better.</li>
         </ul>
       </div>
     </section>
@@ -56,7 +56,7 @@
     <section id="view-game" class="view" hidden>
       <div class="gamebar">
         <span class="progress-pill" id="progress-pill">Puzzle 1 of 3</span>
-        <span class="countdown" id="timer">0:00</span>
+        <span class="countdown" id="timer">1:30</span>
       </div>
       <div id="grid" class="grid"></div>
       <form id="guess-form" class="guess" autocomplete="off">
@@ -66,16 +66,13 @@
         <button type="submit" class="primary-btn" id="check-btn">Check</button>
       </form>
       <p class="guess-msg" id="guess-msg">&nbsp;</p>
-      <div class="game-actions">
-        <button id="reveal-btn" class="ghost-btn">Reveal (+0:30)</button>
-      </div>
     </section>
 
     <!-- RESULTS ---------------------------------------------------------- -->
     <section id="view-results" class="view" hidden>
       <h2 id="results-title">Done!</h2>
-      <div class="final-score" id="final-time">0:00</div>
-      <div class="final-score-label" id="final-label">your time</div>
+      <div class="final-score" id="final-time">0</div>
+      <div class="final-score-label" id="final-label">points</div>
       <ul class="result-rows" id="result-rows"></ul>
       <div class="result-actions">
         <button id="results-share-btn" class="primary-btn">Copy result</button>

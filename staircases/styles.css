@@ -63,6 +63,8 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
 .gamebar { display: flex; justify-content: space-between; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 18px; margin-bottom: 18px; }
 .progress-pill { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
 .countdown { font-family: var(--mono); font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.countdown.urgent { color: var(--bad); animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* Puzzle grid */
 .grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; max-width: 380px; margin: 0 auto 18px; }
@@ -70,7 +72,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
 .gcell.blank { background: #f2e2cb; border-color: var(--tent); color: var(--accent-dim); }
 .gcell.blank.filled { color: var(--tent); }
 .gcell.blank.solved { background: #cfe6c0; border-color: var(--accent); color: var(--accent-dim); }
-.gcell.blank.revealed { background: #ecdcc6; border-color: var(--gold); color: var(--gold); }
+.gcell.blank.timeout { background: #ecdcc6; border-color: var(--gold); color: var(--gold); }
 
 /* Guess input */
 .guess { display: flex; gap: 10px; justify-content: center; align-items: stretch; margin: 0 auto 6px; max-width: 380px; }
@@ -107,7 +109,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
 .r-word { font-family: var(--mono); font-weight: 800; letter-spacing: 3px; }
 .r-tag { font-size: 12px; }
 .r-tag.solved { color: var(--accent); font-weight: 700; }
-.r-tag.revealed { color: var(--gold); }
+.r-tag.timeout { color: var(--gold); }
 .result-actions { display: flex; gap: 12px; justify-content: center; }
 .result-actions .ghost-btn, .result-actions .primary-btn { margin: 0; }
 .copied-toast { color: var(--accent); font-size: 13px; margin-top: 12px; text-align: center; }
