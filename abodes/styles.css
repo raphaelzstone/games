@@ -312,7 +312,8 @@ body {
 .clue.corner { background: none; cursor: default; }
 .clue.corner:hover { background: none; }
 
-.game-actions { display: flex; justify-content: center; margin-top: 4px; }
+.game-actions { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
+.game-actions .ghost-btn { margin: 20px 0 0; }
 
 /* Buttons ----------------------------------------------------------------- */
 .ghost-btn {
@@ -325,7 +326,8 @@ body {
   border-radius: 10px;
   cursor: pointer;
 }
-.ghost-btn:hover { color: var(--text); border-color: var(--muted); }
+.ghost-btn:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+.ghost-btn:disabled { opacity: .4; cursor: default; }
 .primary-btn {
   background: var(--accent);
   border: none;

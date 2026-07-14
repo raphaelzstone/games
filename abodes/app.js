@@ -207,6 +207,7 @@ function startGame(mode) {
     trees: treeSet(puzzle),
     solution: new Set(puzzle.tents.map(([r, c]) => r * n + c)),
     cells,
+    history: [],   // stack of batches of {idx, prev} — one batch per user action
     startMs: performance.now(),
     elapsedBefore,
     tickId: null,
@@ -215,6 +216,7 @@ function startGame(mode) {
   showView("game");
   $("#game-mode-label").textContent = MODES[mode].title;
   renderBoard();
+  updateUndoButton();
   game.tickId = setInterval(updateTimer, 250);
   updateTimer();
 }
@@ -307,9 +309,39 @@ function paintCell(cell, state) {
 // to the caller (used during a drag where we batch a state refresh after).
 function setCell(idx, state) {
   if (game.cells[idx] === state) return;
+  if (pendingBatch) pendingBatch.push({ idx, prev: game.cells[idx] });
   game.cells[idx] = state;
   const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
   if (cell) paintCell(cell, state);
+}
+
+// Undo support: every user action (a tap, a drag, a hold, a clue-line fill/clear,
+// even "Clear board") is one entry on game.history, recorded as the list of
+// per-cell {idx, prev} changes it made. beginBatch()/commitBatch() bracket each
+// action so its setCell() calls land in one entry instead of being undone one
+// cell at a time.
+let pendingBatch = null;
+function beginBatch() { pendingBatch = []; }
+function commitBatch() {
+  if (pendingBatch && pendingBatch.length) game.history.push(pendingBatch);
+  pendingBatch = null;
+}
+function updateUndoButton() {
+  const btn = $("#undo-btn");
+  if (btn) btn.disabled = !game || !game.history.length;
+}
+function undoLastAction() {
+  if (!game || !game.history.length) return;
+  const batch = game.history.pop();
+  for (let i = batch.length - 1; i >= 0; i--) {
+    const { idx, prev } = batch[i];
+    game.cells[idx] = prev;
+    const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
+    if (cell) paintCell(cell, prev);
+  }
+  saveProgress(game.mode, game.cells, elapsedSec());
+  refreshState();
+  updateUndoButton();
 }
 
 /* --- Input: pointer (mouse + touch) ----------------------------------------
@@ -375,11 +407,12 @@ function wireBoardInput(root) {
       lastTouchTime = Date.now();
     }
     const clue = e.target.closest(".clue-row, .clue-col");
-    if (clue) { onClueClick(clue); return; }
+    if (clue) { beginBatch(); onClueClick(clue); return; }
     const cell = e.target.closest(".cell.plot");
     if (!cell) return;          // trees and gaps do nothing
     e.preventDefault();
     try { root.setPointerCapture(e.pointerId); } catch {}
+    beginBatch();
     p = { id: e.pointerId, startIdx: +cell.dataset.idx, x: e.clientX, y: e.clientY,
           dragged: false, held: false, painted: new Set(), holdId: null };
     p.holdId = window.setTimeout(() => {
@@ -451,6 +484,8 @@ function onClueClick(clueEl) {
 }
 
 function afterChange() {
+  commitBatch();
+  updateUndoButton();
   saveProgress(game.mode, game.cells, elapsedSec());
   refreshState();
   checkWin();
@@ -816,9 +851,13 @@ function init() {
     $("#menu-rules-btn").setAttribute("aria-expanded", String(open));
     $("#menu-rules-btn").classList.toggle("open", open);
   });
+  $("#undo-btn").addEventListener("click", undoLastAction);
   $("#clear-btn").addEventListener("click", () => {
     if (!game) return;
-    game.cells.fill(EMPTY);
+    beginBatch();
+    for (let i = 0; i < game.cells.length; i++) setCell(i, EMPTY);
+    commitBatch();
+    updateUndoButton();
     clearProgress(game.mode);
     renderBoard();
   });
