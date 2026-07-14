@@ -1,11 +1,11 @@
 # Square Up
 
-A daily dissection puzzle. One fresh 25-cell shape a day, the same for
+A daily dissection puzzle. One fresh 36-cell shape a day, the same for
 everyone.
 
 Split the shape into two pieces — tap cells to toggle which piece each one
 belongs to — that can be rotated and/or reflected to reassemble into a
-perfect 5×5 square. Every shipped puzzle has been verified to have **exactly
+perfect 6×6 square. Every shipped puzzle has been verified to have **exactly
 one** such split.
 
 ## Scoring
@@ -39,22 +39,26 @@ python3 generate.py [pool_size] [seed]
 The generator works backwards from a known answer, so a solution always
 exists by construction:
 
-1. **Cut** a plain 5×5 square with a random staircase line into two pieces.
+1. **Cut** a plain 6×6 square with a random *monotonic* staircase line into
+   two pieces. Monotonicity matters: it's what guarantees each piece is one
+   connected blob rather than two fragments pinched apart by a row/column
+   that happens to contribute nothing to one side — a non-monotonic cut can
+   silently produce a "piece" that's really two separate blobs, which both
+   breaks the one-piece rule and blinds the uniqueness search below (see
+   next step) to rival splits built the same illegal way.
 2. **Move** one piece — rotate and/or reflect it, then slide it to a new spot
    touching the other piece — so together they form a new, irregular but
-   still-connected 25-cell shape with no gaps or overlaps. That shape is the
+   still-connected 36-cell shape with no gaps or overlaps. That shape is the
    puzzle; the solution is recovering the original two pieces.
 3. **Verify uniqueness.** This is the part that matters: a full search over
    *every* way to split the shown shape into two connected pieces (a
-   bitmask-based search over the 25 cells, with an early exit the instant a
+   bitmask-based search over the 36 cells, with an early exit the instant a
    second, different valid split is found). A powerful prune makes this fast —
-   a piece's bounding box can never exceed 5 in either axis under *any* of the
+   a piece's bounding box can never exceed 6 in either axis under *any* of the
    8 square symmetries, so the moment a partial piece's box does, that whole
    branch is abandoned immediately, since no cells added to it later could ever
    bring it back into range. A puzzle ships only if the one split it was built
-   from is the *only* one that reforms a square; every shape in the pool has
-   also been independently re-verified from its saved data, not just trusted
-   from generation time.
+   from is the *only* one that reforms a square.
 
 ## Leaderboard (Firebase / Firestore)
 

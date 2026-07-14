@@ -1,32 +1,43 @@
 #!/usr/bin/env python3
 """Square Up — daily dissection puzzle generator.
 
-Each puzzle is an irregular 25-cell shape. The player's job: split it into two
-pieces (any way at all, as long as each piece stays orthogonally connected)
-that can be rotated and/or reflected to reassemble into a perfect 5x5 square.
+Each puzzle is an irregular N*N-cell shape (N=6: a 36-cell shape). The
+player's job: split it into two pieces — each one orthogonally connected, a
+real single cut-out piece, not scattered fragments — that can be rotated
+and/or reflected to reassemble into a perfect NxN square.
 
-Construction (so a solution is guaranteed to exist): take a 5x5 square, cut it
-with a random staircase line into two pieces, apply a random rotation/
-reflection to one piece, and slide it to a new position touching the other
-piece so the two together form a new, irregular but still-connected 25-cell
-shape with no gaps or overlaps. That new shape is the puzzle; the "solution"
-is recovering the original two pieces.
+Construction (so a solution is guaranteed to exist): take a plain NxN square,
+cut it with a random MONOTONIC staircase line into two pieces (monotonic is
+what actually guarantees each piece is one connected blob — see
+staircase_cut), apply a random rotation/reflection to one piece, and slide it
+to a new position touching the other piece so the two together form a new,
+irregular but still-connected N*N-cell shape with no gaps or overlaps. That
+new shape is the puzzle; the "solution" is recovering the original two
+pieces.
 
 We ship only puzzles with a UNIQUE solution: a full search over every way to
-split the shown shape into two connected pieces (bitmask-based, with an
+split the shown shape into two CONNECTED pieces (bitmask-based, with an
 early-exit the instant a second, different valid split is found, and a
 necessary geometric prune — a piece's bounding box, in either axis, can never
-exceed 5 under ANY of the 8 square symmetries, so any partial piece that
+exceed N under ANY of the 8 square symmetries, so any partial piece that
 already does is abandoned immediately). A puzzle ships only if the one split
-we built it from is the ONLY one that reforms a square.
+we built it from is the ONLY connected-piece split that reforms a square. (A
+second solution built from disconnected fragments doesn't count against
+uniqueness — it wouldn't be a legal answer in the first place, since a piece
+must stay in one connected blob — but we only get to rely on that if
+construction actually guarantees connected pieces, which is why
+staircase_cut's monotonicity matters: a non-monotonic cut can silently pinch
+a piece into two blobs, which both breaks the "real piece" rule and opens a
+blind spot in the uniqueness search below, which only ever looks for
+*connected* rival splits.)
 
 Output: puzzles.js (global SQUAREUP_PUZZLES), each entry:
   {
-    "shape": [[r,c], ...]              # 25 cells of the puzzle shape, normalized
+    "shape": [[r,c], ...]              # N*N cells of the puzzle shape, normalized
     "a": [[r,c], ...]                  # the "piece A" cells within the shape (the
                                         #   rest of shape is piece B) — the unique
                                         #   solution split
-    "sq": [[r,c,"a"|"b"], ...]         # the plain 5x5 solved square, each cell
+    "sq": [[r,c,"a"|"b"], ...]         # the plain NxN solved square, each cell
                                         #   tagged by which piece it came from —
                                         #   purely for the results-screen reveal
   }
@@ -36,7 +47,7 @@ import json
 import random
 import sys
 
-N = 5
+N = 6
 CELLS = N * N
 DIRS4 = [(-1, 0), (1, 0), (0, -1), (0, 1)]
 
@@ -86,9 +97,24 @@ def connected(cellset):
 def staircase_cut(rng, transpose):
     """A random monotone (staircase) cut of the NxN square into (L, R). If
     `transpose`, the staircase runs column-wise instead of row-wise, for shape
-    variety."""
+    variety.
+
+    `t` MUST be monotonic (non-decreasing or non-increasing) — that's what
+    makes L and R each a single connected staircase blob rather than two
+    pieces pinched apart by a row/column that happens to contribute nothing
+    to one side. An earlier version drew each t[r] independently at random,
+    which is NOT guaranteed monotonic and could silently produce a
+    disconnected L or R — a piece that's really two separate fragments
+    masquerading as one. That both breaks the "cut it into two pieces" rule
+    and (more subtly) blinds check_unique(), which only ever searches for
+    rival CONNECTED splits: a disconnected rival split could tile the square
+    too and sail right past the uniqueness check, so a puzzle could ship with
+    more than one valid answer without ever tripping the guard meant to catch
+    that."""
     while True:
-        t = [rng.randint(0, N) for _ in range(N)]
+        t = sorted(rng.randint(0, N) for _ in range(N))
+        if rng.random() < 0.5:
+            t.reverse()
         if all(x == 0 for x in t) or all(x == N for x in t):
             continue
         if not transpose:
@@ -97,7 +123,7 @@ def staircase_cut(rng, transpose):
         else:
             L = [(r, c) for r in range(N) for c in range(N) if r < t[c]]
             R = [(r, c) for r in range(N) for c in range(N) if r >= t[c]]
-        if L and R:
+        if L and R and connected(L) and connected(R):
             return L, R
 
 

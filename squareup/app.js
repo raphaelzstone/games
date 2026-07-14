@@ -3,10 +3,10 @@
 /* ===========================================================================
  * Square Up — a daily dissection puzzle (vanilla JS).
  *
- * One 25-cell shape a day, the same for everyone (date-seeded pick from the
+ * One 36-cell shape a day, the same for everyone (date-seeded pick from the
  * pre-verified pool in puzzles.js). Split it into two pieces — tap cells to
  * toggle which piece they belong to — that can be rotated and/or reflected to
- * reassemble into a perfect 5x5 square. Every shipped puzzle has been checked
+ * reassemble into a perfect 6x6 square. Every shipped puzzle has been checked
  * to have exactly one such split.
  *
  * It's a race against the clock: a count-up timer runs until you solve it,
@@ -361,7 +361,7 @@ function renderResults(result, replay) {
     $("#final-time").textContent = fmtElapsed(result.seconds);
   }
 
-  // The plain 5x5 square the day's shape hides, both pieces coloured to match
+  // The plain 6x6 square the day's shape hides, both pieces coloured to match
   // the play board — the "aha, it really becomes a square" payoff.
   const puzzle = dailyPuzzle();
   const sqCells = puzzle.sq.map(([r, c]) => [r, c]);
