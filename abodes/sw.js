@@ -4,7 +4,7 @@
  *
  * Strategy: cache-first for same-origin GETs, falling back to network. Any
  * future cross-origin leaderboard endpoints are skipped entirely. */
-const CACHE_VERSION = "v14";
+const CACHE_VERSION = "v15";
 const CACHE = `abodes-${CACHE_VERSION}`;
 
 const SHELL = [

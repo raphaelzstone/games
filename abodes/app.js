@@ -253,6 +253,7 @@ function buildGrid(root, puzzle, cells, interactive) {
   const n = puzzle.size;
   const trees = treeSet(puzzle);
   root.style.setProperty("--n", n);
+  root.classList.toggle("big", n > 10);
   root.innerHTML = "";
   for (let r = 0; r < n; r++) {
     for (let c = 0; c < n; c++) {
@@ -631,7 +632,6 @@ function renderResults(mode, result, replay) {
   const solvedCells = new Array(n * n).fill(EMPTY);
   for (const [r, c] of puzzle.tents) solvedCells[r * n + c] = TENT;
   const board = $("#solved-board");
-  board.classList.toggle("big", n > 10);
   buildGrid(board, puzzle, solvedCells, /*interactive*/ false);
 
   showView("results");
