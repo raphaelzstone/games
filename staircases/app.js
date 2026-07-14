@@ -202,6 +202,7 @@ function renderRound() {
   $("#progress-pill").textContent = `Puzzle ${game.round + 1} of ${ROUNDS}`;
   const msg = $("#guess-msg"); msg.textContent = " "; msg.className = "guess-msg";
   const input = $("#guess-input"); input.value = ""; input.disabled = false;
+  $("#skip-btn").hidden = false;
   $("#timer").classList.remove("urgent");
 
   buildGrid(p, "");
@@ -253,14 +254,20 @@ function submitGuess(e) {
 }
 
 // The countdown reached 0 before a correct guess: the round scores 0 and the
-// answer is revealed automatically — no manual reveal/skip, matching a real
-// timed round.
+// answer is revealed automatically.
 function onTimeout() {
   finishRound("timeout");
 }
 
+// Manual give-up on the current round, same as Word Split's "Skip puzzle":
+// ends it early for 0 points and reveals the answer, same as timing out.
+function onSkip() {
+  if (!game || game.done[game.round]) return;
+  finishRound("timeout", /*skipped*/ true);
+}
+
 // Fill in the answer, score the round, briefly show it, then advance.
-function finishRound(how) {
+function finishRound(how, skipped) {
   const sec = roundElapsedSec();
   const points = roundScore(how === "solved", sec);
   game.done[game.round] = how;
@@ -271,8 +278,11 @@ function finishRound(how) {
   $("#grid").querySelectorAll(".blank").forEach((el) => el.classList.add(how));
   $("#guess-input").value = p.a.toUpperCase();
   $("#guess-input").disabled = true;
-  flashMsg(how === "solved" ? `Solved! +${points}` : `Time's up — it was ${p.a.toUpperCase()}`,
-           how === "solved" ? "good" : "reveal");
+  $("#skip-btn").hidden = true;
+  const msg = how === "solved" ? `Solved! +${points}`
+    : skipped ? `Skipped — it was ${p.a.toUpperCase()}`
+    : `Time's up — it was ${p.a.toUpperCase()}`;
+  flashMsg(msg, how === "solved" ? "good" : "reveal");
   persist();
   setTimeout(() => {
     game.round++;
@@ -455,6 +465,7 @@ function init() {
   });
   $("#guess-input").addEventListener("input", onInput);
   $("#guess-form").addEventListener("submit", submitGuess);
+  $("#skip-btn").addEventListener("click", onSkip);
   $("#menu-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#menu-copied-toast"); });
   $("#results-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#results-copied-toast"); });
 
