@@ -15,7 +15,7 @@
  * a spoiler-free summary (time only — never the layout).
  * ========================================================================= */
 
-const EMPTY = 0, TENT = 1, GRASS = 2;   // player cell states (trees are separate)
+const EMPTY = 0, TENT = 1, GRASS = 2, QUESTION = 3;   // player cell states (trees are separate)
 
 /* Abodes ships two daily modes that share all the game logic and differ only in
  * which puzzle pool they draw from (and how big the board is). Each mode has its
@@ -294,7 +294,12 @@ function buildGrid(root, puzzle, cells, interactive) {
 function paintCell(cell, state) {
   cell.classList.toggle("is-tent", state === TENT);
   cell.classList.toggle("is-grass", state === GRASS);
-  cell.innerHTML = state === TENT ? tentSVG() : state === GRASS ? grassSVG() : "";
+  cell.classList.toggle("is-question", state === QUESTION);
+  if (state === TENT) cell.innerHTML = tentSVG();
+  else if (state === GRASS) cell.innerHTML = grassSVG();
+  else if (state === QUESTION) {
+    cell.innerHTML = `<span class="question-mark" aria-label="uncertain">?</span>`;
+  } else cell.innerHTML = "";
 }
 
 // Update one cell's state and its DOM. `repaint` false defers the visual update
@@ -311,13 +316,16 @@ function setCell(idx, state) {
  *                      (One tap marks grass, a second makes it a tent — with no
  *                      time limit, so coming back to an ✗ later and tapping it
  *                      promotes it to a tent.)
+ * Hold a cell       -> mark it with a question mark; the next tap clears it.
  * Press and drag    -> paint grass across every plot cell you pass over.
  * Tapping a tree    -> nothing.
  * Tapping a clue    -> fill the rest of that row/column with grass. */
 const DRAG_THRESHOLD = 8;   // px of movement before a press becomes a drag
+const HOLD_DELAY = 400;     // ms before a stationary press becomes a question mark
 
 // The tap cycle, kept in one place.
 function nextCellState(cur) {
+  if (cur === QUESTION) return EMPTY;
   return cur === EMPTY ? GRASS : cur === GRASS ? TENT : EMPTY;
 }
 
@@ -372,13 +380,20 @@ function wireBoardInput(root) {
     e.preventDefault();
     try { root.setPointerCapture(e.pointerId); } catch {}
     p = { id: e.pointerId, startIdx: +cell.dataset.idx, x: e.clientX, y: e.clientY,
-          dragged: false, painted: new Set() };
+          dragged: false, held: false, painted: new Set(), holdId: null };
+    p.holdId = window.setTimeout(() => {
+      if (!p || p.id !== e.pointerId || p.dragged) return;
+      p.held = true;
+      setCell(p.startIdx, QUESTION);
+    }, HOLD_DELAY);
   });
 
   root.addEventListener("pointermove", (e) => {
     if (!p || e.pointerId !== p.id) return;
+    if (p.held) return;
     if (!p.dragged && Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) return;
     if (!p.dragged) {           // entering drag: also mark the start cell
+      window.clearTimeout(p.holdId);
       p.dragged = true;
       setCell(p.startIdx, GRASS);
       p.painted.add(p.startIdx);
@@ -394,9 +409,10 @@ function wireBoardInput(root) {
   // NOT advance the cell, or taps get an extra, order-scrambling step.
   const endGesture = (e, cycle) => {
     if (!p || e.pointerId !== p.id) return;
+    window.clearTimeout(p.holdId);
     if (e.pointerType !== "mouse") lastTouchTime = Date.now();
     try { root.releasePointerCapture(e.pointerId); } catch {}
-    if (cycle && !p.dragged) {
+    if (cycle && !p.dragged && !p.held) {
       // A plain tap cycles the cell through empty -> grass -> tent -> empty.
       setCell(p.startIdx, nextCellState(game.cells[p.startIdx]));
     }
@@ -409,7 +425,9 @@ function wireBoardInput(root) {
 
 // Clicking a clue toggles its line's grass: if any cell is still empty, fill the
 // empties with grass; otherwise (everything already grassed) lift the grass back
-// to empty. Trees and tents are always left untouched.
+// to empty. Trees, tents, and question marks are always left untouched. A line
+// with question marks cannot be considered fully grassed, so clicking its clue
+// again does not clear its existing grass.
 function onClueClick(clueEl) {
   const n = game.n;
   const indices = [];
@@ -423,7 +441,7 @@ function onClueClick(clueEl) {
   const open = indices.filter((idx) => !game.trees.has(idx) && game.cells[idx] === EMPTY);
   if (open.length) {
     for (const idx of open) setCell(idx, GRASS);          // fill empties with ✗
-  } else {
+  } else if (!indices.some((idx) => game.cells[idx] === QUESTION)) {
     for (const idx of indices) {
       if (game.cells[idx] === GRASS) setCell(idx, EMPTY); // clear ✗, keep tents
     }
@@ -520,7 +538,10 @@ function refreshState() {
   for (let i = 0; i < game.cells.length; i++) {
     const r = (i / n) | 0, c = i % n;
     if (game.cells[i] === TENT) { rowTents[r]++; colTents[c]++; }
-    else if (game.cells[i] === EMPTY && !game.trees.has(i)) { rowEmpty[r]++; colEmpty[c]++; }
+    else if ((game.cells[i] === EMPTY || game.cells[i] === QUESTION) && !game.trees.has(i)) {
+      rowEmpty[r]++;
+      colEmpty[c]++;
+    }
   }
   document.querySelectorAll("#board .clue-row").forEach((el) => {
     const r = +el.dataset.row, clue = game.puzzle.rowClues[r];
