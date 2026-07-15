@@ -182,11 +182,12 @@ function roundElapsedSec() {
   return game.elapsedBefore + (performance.now() - game.startMs) / 1000;
 }
 function updateTimer() {
+  if (game.done[game.round]) return;   // frozen on the reveal until Next is clicked
   const remaining = Math.max(0, ROUND_LIMIT_SEC - roundElapsedSec());
   const timerEl = $("#timer");
   timerEl.textContent = fmtElapsed(remaining);
   timerEl.classList.toggle("urgent", remaining > 0 && remaining <= 15);
-  if (remaining <= 0 && !game.done[game.round]) { onTimeout(); return; }
+  if (remaining <= 0) { onTimeout(); return; }
   if (performance.now() - game.lastPersist > 4000) persist();
 }
 function persist() {
@@ -203,6 +204,7 @@ function renderRound() {
   const msg = $("#guess-msg"); msg.textContent = " "; msg.className = "guess-msg";
   const input = $("#guess-input"); input.value = ""; input.disabled = false;
   $("#skip-btn").hidden = false;
+  $("#next-btn").hidden = true;
   $("#timer").classList.remove("urgent");
 
   buildGrid(p, "");
@@ -266,7 +268,9 @@ function onSkip() {
   finishRound("timeout", /*skipped*/ true);
 }
 
-// Fill in the answer, score the round, briefly show it, then advance.
+// Fill in the answer, score the round, and show it — advancing only happens
+// when the player clicks Next (same show-answer-then-click-next pattern as
+// Word Split's interstitial), not on an auto-advancing timer.
 function finishRound(how, skipped) {
   const sec = roundElapsedSec();
   const points = roundScore(how === "solved", sec);
@@ -284,13 +288,19 @@ function finishRound(how, skipped) {
     : `Time's up — it was ${p.a.toUpperCase()}`;
   flashMsg(msg, how === "solved" ? "good" : "reveal");
   persist();
-  setTimeout(() => {
-    game.round++;
-    game.startMs = performance.now();
-    game.elapsedBefore = 0;
-    if (game.round >= ROUNDS) finishGame();
-    else renderRound();
-  }, how === "solved" ? 800 : 1400);
+  const nextBtn = $("#next-btn");
+  nextBtn.textContent = game.round >= ROUNDS - 1 ? "See results →" : "Next puzzle →";
+  nextBtn.hidden = false;
+}
+
+function advanceRound() {
+  if (!game || !game.done[game.round]) return;
+  $("#next-btn").hidden = true;
+  game.round++;
+  game.startMs = performance.now();
+  game.elapsedBefore = 0;
+  if (game.round >= ROUNDS) finishGame();
+  else renderRound();
 }
 
 function flashMsg(text, cls) {
@@ -466,6 +476,7 @@ function init() {
   $("#guess-input").addEventListener("input", onInput);
   $("#guess-form").addEventListener("submit", submitGuess);
   $("#skip-btn").addEventListener("click", onSkip);
+  $("#next-btn").addEventListener("click", advanceRound);
   $("#menu-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#menu-copied-toast"); });
   $("#results-share-btn").addEventListener("click", async () => { await copyToClipboard(buildShareText()); flashToast("#results-copied-toast"); });
 

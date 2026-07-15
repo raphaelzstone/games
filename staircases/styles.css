@@ -97,6 +97,7 @@ body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--
 .ghost-btn:disabled { opacity: .4; cursor: default; }
 .primary-btn { background: var(--accent); border: none; color: #fff; font-weight: 700; padding: 12px 22px; border-radius: 10px; cursor: pointer; font-size: 15px; }
 .primary-btn:hover { background: #6fc488; }
+#next-btn:not([hidden]) { display: block; margin: 10px auto 0; }
 
 /* Results */
 #view-results { text-align: center; }

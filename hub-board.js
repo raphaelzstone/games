@@ -51,9 +51,8 @@ const TABS = [
   { key: "staircases", label: "Staircases", coll: "staircases_scores",
     match: () => true,
     rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
-  { key: "squareup", label: "Square Up", coll: "squareup_scores",
-    match: () => true,
-    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  // Square Up is offline for now (see index.html) — its tab is pulled too so
+  // the board doesn't show a leaderboard for a game you can't reach.
 ];
 const MEDALS = ["①", "②", "③"];
 
