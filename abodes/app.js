@@ -766,16 +766,6 @@ function renderBoardPanel(title, rows, myId) {
   return `<div class="board-panel"><h3>${title}</h3><ol class="board-list">${lis}</ol></div>`;
 }
 
-// One mode's leaderboard: a heading plus Today / Yesterday panels. `today` and
-// `yest` are that mode's row arrays (or null when the fetch failed).
-function renderModeGroup(label, today, yest, myId) {
-  return `<div class="board-group">` +
-         `<h2 class="board-group-title">${label}</h2>` +
-         renderBoardPanel("Today", today, myId) +
-         renderBoardPanel("Yesterday", yest, myId) +
-         `</div>`;
-}
-
 async function showLeaderboard() {
   showView("board");
   const root = $("#board-content");
@@ -794,9 +784,12 @@ async function showLeaderboard() {
     window.Leaderboard.fetchBoard(dateKeyOffset(0)),
     window.Leaderboard.fetchBoard(dateKeyOffset(1)),
   ]);
+  // Both Todays first, then both Yesterdays — mirrors Word Split's board order.
   root.innerHTML =
-    renderModeGroup("Normal", today && today.normal, yest && yest.normal, myId) +
-    renderModeGroup("Hard", today && today.hard, yest && yest.hard, myId);
+    renderBoardPanel("Today · Normal",     today && today.normal, myId) +
+    renderBoardPanel("Today · Hard",       today && today.hard,   myId) +
+    renderBoardPanel("Yesterday · Normal", yest && yest.normal,   myId) +
+    renderBoardPanel("Yesterday · Hard",   yest && yest.hard,     myId);
 }
 
 // Small illustrative boards in the How-to-play dropdown. Each spec is a grid of

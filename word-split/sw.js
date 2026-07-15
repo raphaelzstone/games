@@ -1,54 +1,17 @@
-/* Service worker — caches the app shell so Word Split installs as a PWA and
- * runs offline. Bump CACHE_VERSION when you change shipped assets so users
- * pick up the new build instead of an old cached copy.
- *
- * Strategy: cache-first for same-origin GETs, falling back to network. The
- * Firebase CDN and Firestore endpoints are cross-origin and skipped entirely,
- * so the leaderboard simply doesn't work offline (everything else does).
- */
-const CACHE_VERSION = "v2";
-const CACHE = `word-split-${CACHE_VERSION}`;
-
-const SHELL = [
-  "./",
-  "./index.html",
-  "./styles.css",
-  "./app.js",
-  "./puzzles.js",
-  "./birds.js",
-  "./firebase-config.js",
-  "./leaderboard.js",
-  "./manifest.json",
-  "./icon.svg",
-];
-
-self.addEventListener("install", (e) => {
-  // skipWaiting + clients.claim() in activate together mean a new build takes
-  // over the next time the page is reloaded, with no user prompt.
-  e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
-  );
-});
+/* Kill switch. Word Split was split into two standalone games (Combos and
+ * Forks); this folder now only serves a redirect page. Browsers always check
+ * the network for a new service-worker.js on navigation (bypassing whatever
+ * fetch handler the currently-installed worker has), so this file replacing
+ * the old cache-first shell worker is what lets already-installed PWA users
+ * actually reach the redirect instead of an old cached copy of the game. */
+self.addEventListener("install", () => self.skipWaiting());
 
 self.addEventListener("activate", (e) => {
-  e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
-});
-
-self.addEventListener("fetch", (e) => {
-  const url = new URL(e.request.url);
-  if (url.origin !== self.location.origin) return;        // skip cross-origin
-  if (e.request.method !== "GET") return;
-  e.respondWith(
-    caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
-      if (res.ok) {
-        const clone = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, clone));
-      }
-      return res;
-    }).catch(() => hit))
-  );
+  e.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+    await self.registration.unregister();
+    const clientsList = await self.clients.matchAll({ type: "window" });
+    for (const client of clientsList) client.navigate(client.url);
+  })());
 });

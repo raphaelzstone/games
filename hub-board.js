@@ -2,15 +2,18 @@
  *
  * A small, unobtrusive strip on the landing page: one tab per subgame, each
  * showing the top three finishers from *yesterday*. It only reads Firestore
- * (reads are open on both collections), so no writes and no auth.
+ * (reads are open on every collection), so no writes and no auth.
  *
- * The four subgames live in two collections with different score senses:
- *   - Abodes  → `abodes_scores`, ranked by fastest time (seconds, lower wins).
- *               Hard boards carry mode:"hard"; normal boards have no mode.
- *   - Word Split → `scores`, ranked by points (score, higher wins), with
- *               mode:"combos" | "forks".
- * Each collection is fetched once for yesterday's date, then split/sorted per
- * tab in the client — a single date-equality query, no composite index. */
+ * Every game keeps its own Firestore collection:
+ *   - Abodes      → `abodes_scores`, ranked by fastest time (seconds, lower
+ *                    wins). Hard boards carry mode:"hard"; normal has no mode.
+ *   - Combos      → `combos_scores`, ranked by points (score, higher wins).
+ *   - Forks       → `forks_scores`, ranked by points (score, higher wins).
+ *   - Staircases  → `staircases_scores`, ranked by points (score, higher wins).
+ *   - Square Up   → `squareup_scores`, ranked by fastest time (currently
+ *                    unlinked from the hub; see index.html).
+ * Each collection is fetched once for yesterday's date, then sorted per tab
+ * in the client — a single date-equality query, no composite index. */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -42,11 +45,11 @@ const TABS = [
   { key: "abodes-hard", label: "Abodes 14×14", coll: "abodes_scores",
     match: (r) => r.mode === "hard",
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
-  { key: "combos", label: "Combos", coll: "scores",
-    match: (r) => r.mode === "combos",
+  { key: "combos", label: "Combos", coll: "combos_scores",
+    match: () => true,
     rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
-  { key: "forks", label: "Forks", coll: "scores",
-    match: (r) => r.mode === "forks",
+  { key: "forks", label: "Forks", coll: "forks_scores",
+    match: () => true,
     rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
   { key: "staircases", label: "Staircases", coll: "staircases_scores",
     match: () => true,

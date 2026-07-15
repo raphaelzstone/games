@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#4a8159"/>
+  <text x="256" y="332" text-anchor="middle"
+        font-family="'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace"
+        font-weight="800" font-size="240" fill="#f3f6ee" letter-spacing="-8">FK</text>
+</svg>

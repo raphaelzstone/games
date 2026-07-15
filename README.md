@@ -11,9 +11,15 @@ Live at `https://raphaelzstone.github.io/games/`.
 | Game | Path | What it is |
 |------|------|-----------|
 | **Abodes** | [`abodes/`](abodes/) | A daily **Tents** logic puzzle — two boards a day, an 8×8 sprint and a 14×14 marathon. |
-| **Word Split** | [`word-split/`](word-split/) | Two daily word puzzles back to back — **Combos** and **Forks**. |
+| **Combos** | [`combos/`](combos/) | A daily word puzzle — find every two-letter fill that makes a real word. Three rounds a day. |
+| **Forks** | [`forks/`](forks/) | A daily word puzzle — given the split, find the one shared word. Two rounds a day. |
 | **Staircases** | [`staircases/`](staircases/) | Three daily word puzzles — find the hidden 3-letter word that climbs through four rows. |
-| **Square Up** | [`squareup/`](squareup/) | A daily dissection puzzle — split a shape into two pieces that reassemble into a perfect square. |
+| **Square Up** | [`squareup/`](squareup/) | *(currently offline — see below)* A daily dissection puzzle — split a shape into two pieces that reassemble into a perfect square. |
+
+Combos and Forks used to be one combined "Word Split" game; they're now split
+into their own subfolders so every game in the arcade has the same flat
+structure. `word-split/` still exists purely as a redirect to this hub, for
+anyone with the old link bookmarked.
 
 Each subfolder is a self-contained static site (see its own `README.md`). They
 share one Firebase project for leaderboards but keep their scores in separate
@@ -34,9 +40,11 @@ games/
 ├── identity.js       shared arcade player identity (bird name + id)
 ├── hub-board.js      "yesterday's top 3" strip, one tab per subgame
 ├── abodes/           the Abodes game
-├── word-split/       the Word Split game
+├── combos/           the Combos game
+├── forks/            the Forks game
 ├── staircases/       the Staircases game
-└── squareup/         the Square Up game
+├── squareup/         the Square Up game (currently unlinked from the hub)
+└── word-split/       redirects to the hub — Combos/Forks's old combined home
 ```
 
 The old standalone `Abodes` and `word_split` repos now just redirect here, so
@@ -49,7 +57,7 @@ and service workers resolve:
 
 ```sh
 python3 -m http.server 8000
-# open http://localhost:8000  (hub), or .../abodes/ , .../word-split/ , etc.
+# open http://localhost:8000  (hub), or .../abodes/ , .../combos/ , etc.
 ```
 
 ## Deploy (GitHub Pages)
