@@ -69,7 +69,6 @@ body {
 /* Menu -------------------------------------------------------------------- */
 .tagline { text-align: center; color: var(--muted); margin: 0 0 18px; }
 .menu-cards { display: grid; gap: 16px; }
-@media (min-width: 560px) { .menu-cards { grid-template-columns: 1fr 1fr; } }
 
 /* Player name on the menu — clickable, opens a prompt to rename. */
 .who { text-align: center; color: var(--muted); margin: 0 0 8px; font-size: 13px; }

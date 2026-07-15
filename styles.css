@@ -129,6 +129,19 @@ body {
 .fork-stack span:first-child { border-bottom: 1px solid var(--line); padding-bottom: 3px; }
 .fork-stack span:last-child { padding-top: 3px; color: var(--muted); }
 
+.game-art-grader { align-items: center; gap: 6px; }
+.grader-letter {
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--accent-dim);
+}
+
 .game-title { font-size: 21px; font-weight: 800; }
 .game-tag {
   font-size: 11px;

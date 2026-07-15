@@ -54,6 +54,12 @@ const TABS = [
   { key: "staircases", label: "Staircases", coll: "staircases_scores",
     match: () => true,
     rank: (a, b) => b.score - a.score, value: (r) => String(r.score) },
+  { key: "grader-easy", label: "Grader 5×5", coll: "grader_scores",
+    match: (r) => r.mode === "easy",
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  { key: "grader-hard", label: "Grader 7×7", coll: "grader_scores",
+    match: (r) => r.mode === "hard",
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
   // Square Up is offline for now (see index.html) — its tab is pulled too so
   // the board doesn't show a leaderboard for a game you can't reach.
 ];
