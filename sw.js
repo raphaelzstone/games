@@ -5,7 +5,7 @@
  *
  * Strategy: cache-first for same-scope GETs, falling back to network. Requests
  * for the game subfolders are left to the network / their own workers. */
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const CACHE = `games-hub-${CACHE_VERSION}`;
 
 const SHELL = [
@@ -42,7 +42,9 @@ self.addEventListener("fetch", (e) => {
   const scope = self.registration.scope;
   if (!e.request.url.startsWith(scope)) return;
   const rest = e.request.url.slice(scope.length);
-  if (rest.startsWith("abodes/") || rest.startsWith("word-split/")) return;
+  if (rest.startsWith("abodes/") || rest.startsWith("word-split/")
+    || rest.startsWith("combos/") || rest.startsWith("forks/")
+    || rest.startsWith("staircases/") || rest.startsWith("squareup/")) return;
 
   e.respondWith(
     caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
