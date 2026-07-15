@@ -215,6 +215,8 @@ class Solver:
             # cell can only be BLANK or the clue letter.
             def scan(cellseq, clue):
                 nonlocal changed
+                if clue is None:
+                    return
                 for (r, c) in cellseq:
                     cell = cands[r][c]
                     if cell == {BLANK}:
@@ -279,21 +281,50 @@ class Solver:
 
 
 # --- Puzzle assembly -----------------------------------------------------------
+def fully_solves(left, right, top, bot, grid):
+    """True iff the deduction solver (propagation + proof-by-contradiction,
+    never guessing) fully determines every cell to match `grid` exactly."""
+    solver = Solver(left, right, top, bot)
+    ok, _, cands = solver.solve()
+    if not ok:
+        return False
+    deduced = [[next(iter(cands[r][c])) for c in range(N)] for r in range(N)]
+    return deduced == grid
+
+
+# Greedily drop clues (in random order) as long as the puzzle stays fully
+# solvable by pure deduction. A dropped clue is stored as None and just means
+# "no constraint from that side" -- the solver's scan() already treats a None
+# clue that way, so this can never make the solver assert a wrong value, only
+# fail to narrow further. That's why a full solve still proves uniqueness
+# with clues missing, exactly as it does with all of them present (see
+# README). Locally minimal, not globally minimum -- order-dependent, and
+# that's fine: it's what gives every puzzle's clue count some natural
+# variety instead of all landing on one fixed count.
+def minimize_clues(grid, left, right, top, bot, rng):
+    left, right, top, bot = list(left), list(right), list(top), list(bot)
+    slots = [("left", i) for i in range(N)] + [("right", i) for i in range(N)] \
+          + [("top", i) for i in range(N)] + [("bot", i) for i in range(N)]
+    rng.shuffle(slots)
+    arrs = {"left": left, "right": right, "top": top, "bot": bot}
+    for side, i in slots:
+        saved = arrs[side][i]
+        arrs[side][i] = None
+        if not fully_solves(left, right, top, bot, grid):
+            arrs[side][i] = saved
+    return left, right, top, bot
+
+
 def make_puzzle(rng):
     grid = build_solution(rng)
     left, right, top, bot = derive_clues(grid)
-    solver = Solver(left, right, top, bot)
-    ok, needed_contradiction, cands = solver.solve()
-    if not ok:
+    if not fully_solves(left, right, top, bot, grid):
         return None
-    deduced = [[next(iter(cands[r][c])) for c in range(N)] for r in range(N)]
-    if deduced != grid:
-        return None
+    left, right, top, bot = minimize_clues(grid, left, right, top, bot, rng)
     out_grid = [[(-1 if v == BLANK else v) for v in row] for row in grid]
     return {
         "n": N, "k": K, "grid": out_grid,
         "left": left, "right": right, "top": top, "bot": bot,
-        "needed_contradiction": needed_contradiction,
     }
 
 

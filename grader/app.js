@@ -205,10 +205,12 @@ function buildGrid(root, puzzle, cells, interactive) {
   root.innerHTML = "";
 
   const corner = () => { const d = document.createElement("div"); d.className = "clue corner"; return d; };
+  // A null clue means this puzzle didn't need it for a full pure-logic
+  // solve (see generate.py's minimize_clues) -- render the box empty.
   const clueCell = (letterIdx, kind) => {
     const d = document.createElement("div");
     d.className = `clue clue-${kind}`;
-    d.textContent = letterChar(letterIdx);
+    if (letterIdx != null) d.textContent = letterChar(letterIdx);
     return d;
   };
 
@@ -433,19 +435,25 @@ function refreshState() {
     }
     return null;
   };
+  // A null clue (dropped during minimization — see generate.py) imposes no
+  // constraint, so there's nothing to check against it.
   for (let r = 0; r < n; r++) {
     const row = Array.from({ length: n }, (_, c) => r * n + c);
     const leftFirst = scanFirst(row);
-    if (leftFirst != null && letterIndexOf(game.cells[leftFirst]) !== game.puzzle.left[r]) conflictIdx.add(leftFirst);
+    if (leftFirst != null && game.puzzle.left[r] != null
+      && letterIndexOf(game.cells[leftFirst]) !== game.puzzle.left[r]) conflictIdx.add(leftFirst);
     const rightFirst = scanFirst([...row].reverse());
-    if (rightFirst != null && letterIndexOf(game.cells[rightFirst]) !== game.puzzle.right[r]) conflictIdx.add(rightFirst);
+    if (rightFirst != null && game.puzzle.right[r] != null
+      && letterIndexOf(game.cells[rightFirst]) !== game.puzzle.right[r]) conflictIdx.add(rightFirst);
   }
   for (let c = 0; c < n; c++) {
     const col = Array.from({ length: n }, (_, r) => r * n + c);
     const topFirst = scanFirst(col);
-    if (topFirst != null && letterIndexOf(game.cells[topFirst]) !== game.puzzle.top[c]) conflictIdx.add(topFirst);
+    if (topFirst != null && game.puzzle.top[c] != null
+      && letterIndexOf(game.cells[topFirst]) !== game.puzzle.top[c]) conflictIdx.add(topFirst);
     const botFirst = scanFirst([...col].reverse());
-    if (botFirst != null && letterIndexOf(game.cells[botFirst]) !== game.puzzle.bot[c]) conflictIdx.add(botFirst);
+    if (botFirst != null && game.puzzle.bot[c] != null
+      && letterIndexOf(game.cells[botFirst]) !== game.puzzle.bot[c]) conflictIdx.add(botFirst);
   }
 
   for (const idx of conflictIdx) {

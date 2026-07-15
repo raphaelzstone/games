@@ -37,6 +37,19 @@ solvable; only ~3.6% of random 7×7/A-D grids are (and every one of those
 needed the contradiction step) — Hard is a meaningfully harder puzzle class,
 not just a bigger board.
 
+## Clue minimization
+
+Once a puzzle passes the solvability check above, the generator tries
+dropping each of its (up to) 4×N edge clues one at a time, in random order,
+keeping the drop only if the puzzle is *still* fully solvable by the same
+pure-deduction solver without it. A dropped clue can never make the solver
+assert a wrong value — it only removes a restriction — so this can't weaken
+the uniqueness proof; it just means fewer of the clues were actually load-
+bearing. The result is locally minimal (not globally minimum, since it's
+order-dependent) and varies puzzle to puzzle: on average Easy ships with
+~7 of its 20 possible clues, Hard with ~14 of 28. Missing clues render as
+blank boxes on the board.
+
 ## Controls
 
 - **Tap** a square to cycle it: blank ✗ → A → B → C (→ D on Hard) → empty.

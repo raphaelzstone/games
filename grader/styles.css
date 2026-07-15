@@ -203,13 +203,17 @@ body {
  * Clues sit on all four sides, so the grid is (n+2) x (n+2): a corner, the
  * top clues, a corner on the first row; a left clue, n plot cells, a right
  * clue on each of the next n rows; a corner, the bottom clues, a corner on
- * the last row. Corners and top/bottom clues are aspect-square (nothing else
- * sets their row's height); left/right clues just stretch to match the row
- * height the interior plot cells already set via their own aspect-ratio. */
+ * the last row. The board itself is aspect-square with matching column/row
+ * fr tracks, so every cell — plot or clue — comes out square without any
+ * per-cell aspect-ratio (that fought the 0.7fr clue tracks: aspect-ratio
+ * content can grow a track past its fr share, which is what made clue
+ * columns render the same width as plot columns instead of narrower). */
 .board {
   --n: 5;
+  aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: 0.7fr repeat(var(--n), 1fr) 0.7fr;
+  grid-template-rows: 0.7fr repeat(var(--n), 1fr) 0.7fr;
   gap: 4px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -224,7 +228,6 @@ body {
 
 .cell {
   position: relative;
-  aspect-ratio: 1 / 1;
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 7px;
@@ -268,7 +271,6 @@ body {
   font-size: 16px;
   color: var(--muted);
 }
-.clue-top, .clue-bot, .clue.corner { aspect-ratio: 1 / 1; }
 .clue.corner { background: none; }
 
 .game-actions { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
