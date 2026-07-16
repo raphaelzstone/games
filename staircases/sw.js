@@ -1,6 +1,6 @@
 /* Service worker — caches the Staircases shell so it installs as a PWA and runs
  * offline. Scoped to this folder only. Bump CACHE_VERSION when assets change. */
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const CACHE = `staircases-${CACHE_VERSION}`;
 
 const SHELL = [

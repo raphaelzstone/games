@@ -46,7 +46,7 @@ summary (score + solved marks, never the words).
 
 ```sh
 python3 generate.py [zipf_floor] [pool_size] [seed]
-# e.g. python3 generate.py 2.5 900
+# e.g. python3 generate.py 2.3 3000 20260713  (the shipped pool)
 ```
 
 Needs `pip install wordfreq`. The generator:
@@ -56,12 +56,17 @@ Needs `pip install wordfreq`. The generator:
    inflections it's missing, e.g. plurals/tenses) and (b) at least as common as
    `zipf_floor` by `wordfreq` frequency — this excludes proper nouns and most
    obscure/archaic words. `zipf_floor` trades vocabulary size for obscurity;
-   the shipped pool uses 2.5, a notch more obscure than Word Split's tier.
+   the shipped pool uses 2.3, a notch more obscure than Word Split's tier.
+   (The hidden 3-letter answer itself is never checked against a word list —
+   only the four 6-letter context words have to be real — so it's already as
+   unconstrained as it can be; growing the pool means loosening `zipf_floor`.)
 2. For each candidate 3-letter trigram, looks for four distinct words (one per
    staircase offset) whose *other* three letters, combined, pin down that
    trigram as the **only** one consistent with all four rows — i.e. a unique
    solution, not just *a* valid one.
-3. Ships up to a few puzzles per trigram so answers vary day to day.
+3. Ships up to a few puzzles per trigram so answers vary day to day — the
+   client spreads repeats of the same answer across the full cycle so no two
+   land on the same or adjacent days (see `dailyPuzzles()` in `app.js`).
 
 ## Leaderboard (Firebase / Firestore)
 
