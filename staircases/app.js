@@ -54,18 +54,48 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-// A stable shuffle of the pool, stepped ROUNDS puzzles per day so each day gets
-// a distinct trio and every puzzle is used before any repeats.
+// A stable ordering of the pool, stepped ROUNDS puzzles per day so each day
+// gets a distinct trio and every puzzle is used before any repeats. The pool
+// ships up to a few puzzles per answer trigram (for word variety), so a plain
+// shuffle can land two of them on the same day or on back-to-back days —
+// instead, group by answer and round-robin across the (shuffled) groups: that
+// guarantees a day's ROUNDS puzzles never share an answer, and repeats of the
+// same answer land as far apart as the group count allows.
 function dailyPuzzles() {
   const pool = STAIRCASES_PUZZLES;
   const rng = mulberry32(hashString("staircases"));
-  const idx = pool.map((_, i) => i);
-  for (let i = idx.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [idx[i], idx[j]] = [idx[j], idx[i]];
+
+  const groups = new Map();
+  pool.forEach((p, i) => {
+    if (!groups.has(p.a)) groups.set(p.a, []);
+    groups.get(p.a).push(i);
+  });
+  const groupList = [...groups.values()];
+  for (const g of groupList) {
+    for (let i = g.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [g[i], g[j]] = [g[j], g[i]];
+    }
   }
-  const epoch = Date.UTC(2026, 0, 1);
-  const day = Math.floor((Date.now() - epoch) / 86400000);
+  for (let i = groupList.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [groupList[i], groupList[j]] = [groupList[j], groupList[i]];
+  }
+  const idx = [];
+  for (let col = 0; ; col++) {
+    let any = false;
+    for (const g of groupList) {
+      if (col < g.length) { idx.push(g[col]); any = true; }
+    }
+    if (!any) break;
+  }
+  // Local calendar day number, matching dateKey()'s local-date storage keys —
+  // NOT a UTC epoch diff, which would drift a day off from dateKey() for any
+  // reader not on UTC and hand out yesterday's set for hours after local midnight.
+  const now = new Date();
+  const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const epoch = new Date(2026, 0, 1);
+  const day = Math.floor((localMidnight - epoch) / 86400000);
   const out = [];
   for (let k = 0; k < ROUNDS; k++) {
     const pos = (((day * ROUNDS + k) % idx.length) + idx.length) % idx.length;
