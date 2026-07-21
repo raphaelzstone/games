@@ -207,6 +207,7 @@ function startGame(mode) {
     trees: treeSet(puzzle),
     solution: new Set(puzzle.tents.map(([r, c]) => r * n + c)),
     cells,
+    selected: null,   // idx of the currently-selected plot cell, or null
     history: [],   // stack of batches of {idx, prev} — one batch per user action
     startMs: performance.now(),
     elapsedBefore,
@@ -217,6 +218,7 @@ function startGame(mode) {
   $("#game-mode-label").textContent = MODES[mode].title;
   renderBoard();
   updateUndoButton();
+  updateActionButtons();
   game.tickId = setInterval(updateTimer, 250);
   updateTimer();
 }
@@ -345,21 +347,22 @@ function undoLastAction() {
 }
 
 /* --- Input: pointer (mouse + touch) ----------------------------------------
- * Tap a cell        -> cycle its state: empty -> grass (✗) -> tent -> empty.
- *                      (One tap marks grass, a second makes it a tent — with no
- *                      time limit, so coming back to an ✗ later and tapping it
- *                      promotes it to a tent.)
- * Hold a cell       -> mark it with a question mark; the next tap clears it.
+ * Tap a cell        -> select it, and directly toggle grass (✗): empty becomes
+ *                      grass, anything else (grass/tent/?) clears back to
+ *                      empty. No cycling, no counting taps — every tap has one
+ *                      deterministic outcome based on the cell's current state.
+ * Tap "Tent" / "?"  -> set the selected cell to that state (the buttons below
+ *                      the board).
  * Press and drag    -> paint grass across every plot cell you pass over.
  * Tapping a tree    -> nothing.
  * Tapping a clue    -> fill the rest of that row/column with grass. */
 const DRAG_THRESHOLD = 8;   // px of movement before a press becomes a drag
-const HOLD_DELAY = 400;     // ms before a stationary press becomes a question mark
 
-// The tap cycle, kept in one place.
-function nextCellState(cur) {
-  if (cur === QUESTION) return EMPTY;
-  return cur === EMPTY ? GRASS : cur === GRASS ? TENT : EMPTY;
+// A plain tap toggles grass on/off; any non-grass mark (tent, ?) is cleared to
+// empty by a tap rather than converted, so tapping never destroys a tent or ?
+// mark you didn't mean to touch by "cycling" past it.
+function tapNextState(cur) {
+  return cur === EMPTY ? GRASS : EMPTY;
 }
 
 function plotCellAt(x, y) {
@@ -414,20 +417,13 @@ function wireBoardInput(root) {
     try { root.setPointerCapture(e.pointerId); } catch {}
     beginBatch();
     p = { id: e.pointerId, startIdx: +cell.dataset.idx, x: e.clientX, y: e.clientY,
-          dragged: false, held: false, painted: new Set(), holdId: null };
-    p.holdId = window.setTimeout(() => {
-      if (!p || p.id !== e.pointerId || p.dragged) return;
-      p.held = true;
-      setCell(p.startIdx, QUESTION);
-    }, HOLD_DELAY);
+          dragged: false, painted: new Set() };
   });
 
   root.addEventListener("pointermove", (e) => {
     if (!p || e.pointerId !== p.id) return;
-    if (p.held) return;
     if (!p.dragged && Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) return;
     if (!p.dragged) {           // entering drag: also mark the start cell
-      window.clearTimeout(p.holdId);
       p.dragged = true;
       setCell(p.startIdx, GRASS);
       p.painted.add(p.startIdx);
@@ -438,17 +434,19 @@ function wireBoardInput(root) {
     if (!p.painted.has(idx)) { setCell(idx, GRASS); p.painted.add(idx); }
   });
 
-  // `cycle` is true only for a real finish (pointerup). A pointercancel — which
+  // `tap` is true only for a real finish (pointerup). A pointercancel — which
   // fires when the browser hijacks the gesture (e.g. an attempted zoom) — must
-  // NOT advance the cell, or taps get an extra, order-scrambling step.
-  const endGesture = (e, cycle) => {
+  // NOT register as a tap, or taps get an extra, order-scrambling step.
+  const endGesture = (e, tap) => {
     if (!p || e.pointerId !== p.id) return;
-    window.clearTimeout(p.holdId);
     if (e.pointerType !== "mouse") lastTouchTime = Date.now();
     try { root.releasePointerCapture(e.pointerId); } catch {}
-    if (cycle && !p.dragged && !p.held) {
-      // A plain tap cycles the cell through empty -> grass -> tent -> empty.
-      setCell(p.startIdx, nextCellState(game.cells[p.startIdx]));
+    if (tap && !p.dragged) {
+      // A plain tap toggles grass and selects the cell (see tapNextState).
+      setCell(p.startIdx, tapNextState(game.cells[p.startIdx]));
+      selectCell(p.startIdx);
+    } else if (p.dragged) {
+      selectCell(p.startIdx);
     }
     p = null;
     afterChange();
@@ -489,6 +487,37 @@ function afterChange() {
   saveProgress(game.mode, game.cells, elapsedSec());
   refreshState();
   checkWin();
+}
+
+/* --- Selection + bottom action bar ------------------------------------------
+ * The bottom bar's Tent and ? buttons act on whichever plot cell was last
+ * tapped or dragged into. Grass (✗) never needs the bar — a tap on the board
+ * sets or clears it directly (see tapNextState). */
+function selectCell(idx) {
+  if (game.selected === idx) { updateActionButtons(); return; }
+  const prev = game.selected;
+  game.selected = idx;
+  if (prev != null) {
+    const prevCell = document.querySelector(`#board .cell[data-idx="${prev}"]`);
+    if (prevCell) prevCell.classList.remove("selected");
+  }
+  const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
+  if (cell) cell.classList.add("selected");
+  updateActionButtons();
+}
+function updateActionButtons() {
+  const has = !!game && game.selected != null;
+  const tentBtn = $("#tent-btn"), qBtn = $("#question-btn");
+  if (tentBtn) tentBtn.disabled = !has;
+  if (qBtn) qBtn.disabled = !has;
+}
+// Set the selected cell to `state` (used by the Tent and ? buttons).
+function setSelectedState(state) {
+  if (!game || game.selected == null) return;
+  beginBatch();
+  setCell(game.selected, state);
+  commitBatch();
+  afterChange();
 }
 
 // Recolour clues and flag rule-breaking tents.
@@ -852,8 +881,12 @@ function init() {
     commitBatch();
     updateUndoButton();
     clearProgress(game.mode);
+    game.selected = null;
     renderBoard();
+    updateActionButtons();
   });
+  $("#tent-btn").addEventListener("click", () => setSelectedState(TENT));
+  $("#question-btn").addEventListener("click", () => setSelectedState(QUESTION));
   $("#menu-share-btn").addEventListener("click", async () => {
     await copyToClipboard(buildShareText());
     flashToast("#menu-copied-toast");

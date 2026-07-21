@@ -104,8 +104,11 @@ function saveResult(mode, result) {
   try { localStorage.setItem(resultKey(mode), JSON.stringify(result)); }
   catch { /* storage unavailable — game still works */ }
 }
-function saveProgress(mode, cells, elapsed) {
-  try { localStorage.setItem(progressKey(mode), JSON.stringify({ cells, elapsed: elapsed || 0 })); } catch {}
+function saveProgress(mode, cells, elapsed, notes) {
+  try {
+    const notesArr = notes ? notes.map((s) => (s && s.size ? [...s] : null)) : null;
+    localStorage.setItem(progressKey(mode), JSON.stringify({ cells, elapsed: elapsed || 0, notes: notesArr }));
+  } catch {}
 }
 function loadProgress(mode) {
   try { return JSON.parse(localStorage.getItem(progressKey(mode)) || "null"); }
@@ -150,16 +153,23 @@ function startGame(mode) {
   const puzzle = dailyPuzzle(mode);
   const n = puzzle.n, k = puzzle.k;
   const cells = new Array(n * n).fill(EMPTY);
+  const notes = new Array(n * n).fill(null);
   const saved = loadProgress(mode);
   let elapsedBefore = 0;
   if (saved && Array.isArray(saved.cells) && saved.cells.length === n * n) {
     for (let i = 0; i < cells.length; i++) cells[i] = saved.cells[i] || EMPTY;
     elapsedBefore = saved.elapsed || 0;
+    if (Array.isArray(saved.notes)) {
+      for (let i = 0; i < notes.length; i++) if (saved.notes[i] && saved.notes[i].length) notes[i] = new Set(saved.notes[i]);
+    }
   }
   game = {
     mode, puzzle, n, k,
     question: 2 + k,
     cells,
+    notes,           // per-cell Set of noted letter indices (only on EMPTY cells)
+    noteMode: false, // when true, letter buttons add/remove notes instead of setting the cell
+    selected: null,  // idx of the currently-selected plot cell, or null
     history: [],
     startMs: performance.now(),
     elapsedBefore,
@@ -168,8 +178,10 @@ function startGame(mode) {
   };
   showView("game");
   $("#game-mode-label").textContent = MODES[mode].title;
+  buildActionBar();
   renderBoard();
   updateUndoButton();
+  updateActionButtons();
   game.tickId = setInterval(updateTimer, 250);
   updateTimer();
 }
@@ -181,11 +193,11 @@ function updateTimer() {
   $("#timer").textContent = fmtElapsed(elapsedSec());
   if (performance.now() - game.lastPersist > 5000) {
     game.lastPersist = performance.now();
-    saveProgress(game.mode, game.cells, elapsedSec());
+    saveProgress(game.mode, game.cells, elapsedSec(), game.notes);
   }
 }
 function persistProgress() {
-  if (game && game.tickId) saveProgress(game.mode, game.cells, elapsedSec());
+  if (game && game.tickId) saveProgress(game.mode, game.cells, elapsedSec(), game.notes);
 }
 
 function renderBoard() {
@@ -226,7 +238,7 @@ function buildGrid(root, puzzle, cells, interactive) {
       const cell = document.createElement("div");
       cell.className = "cell plot";
       cell.dataset.idx = idx;
-      paintCell(cell, cells ? cells[idx] : letterState(puzzle.grid[r][c]), k);
+      paintCell(cell, cells ? cells[idx] : letterState(puzzle.grid[r][c]), k, cells ? game.notes?.[idx] : null);
       root.appendChild(cell);
     }
     root.appendChild(clueCell(puzzle.right[r], "right"));
@@ -239,7 +251,9 @@ function buildGrid(root, puzzle, cells, interactive) {
   if (interactive) wireBoardInput(root);
 }
 
-function paintCell(cell, state, k) {
+// `notes` is the Set of noted letter indices for this cell (only meaningful
+// when state === EMPTY — any other state clears its notes, see setCell).
+function paintCell(cell, state, k, notes) {
   const question = 2 + k;
   cell.classList.toggle("is-blank", state === BLANKMARK);
   cell.classList.toggle("is-letter", isLetterState(state, k));
@@ -252,6 +266,10 @@ function paintCell(cell, state, k) {
     cell.innerHTML = `<span class="letter">${letterChar(letterIndexOf(state))}</span>`;
   } else if (state === question) {
     cell.innerHTML = `<span class="question-mark" aria-label="uncertain">?</span>`;
+  } else if (notes && notes.size) {
+    const lis = [...notes].sort((a, b) => a - b)
+      .map((i) => `<span class="note note-${i}">${letterChar(i)}</span>`).join("");
+    cell.innerHTML = `<div class="notes">${lis}</div>`;
   } else {
     cell.innerHTML = "";
   }
@@ -261,8 +279,10 @@ function setCell(idx, state) {
   if (game.cells[idx] === state) return;
   if (pendingBatch) pendingBatch.push({ idx, prev: game.cells[idx] });
   game.cells[idx] = state;
+  // Any real mark (blank, letter, ?) supersedes pencilled-in candidates.
+  if (state !== EMPTY && game.notes[idx]) game.notes[idx] = null;
   const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
-  if (cell) paintCell(cell, state, game.k);
+  if (cell) paintCell(cell, state, game.k, game.notes[idx]);
 }
 
 // Undo support: every user action is one entry on game.history, recorded as
@@ -284,32 +304,33 @@ function undoLastAction() {
     const { idx, prev } = batch[i];
     game.cells[idx] = prev;
     const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
-    if (cell) paintCell(cell, prev, game.k);
+    if (cell) paintCell(cell, prev, game.k, game.notes[idx]);
   }
-  saveProgress(game.mode, game.cells, elapsedSec());
+  saveProgress(game.mode, game.cells, elapsedSec(), game.notes);
   refreshState();
   updateUndoButton();
 }
 
 /* --- Input: pointer (mouse + touch) ----------------------------------------
- * Tap a cell        -> cycle its state: empty -> blank (X) -> A -> B -> C
- *                      (-> D on Hard) -> empty.
- * Hold a cell       -> mark it with a question mark; the next tap clears it.
+ * Tap a cell        -> select it, and (outside note mode) directly toggle the
+ *                      blank X: empty becomes blank, anything else (blank,
+ *                      letter, ?) clears back to empty. No cycling, no
+ *                      counting taps.
+ * Tap a letter button-> set the selected cell to that letter (or, in note
+ *                      mode, toggle that letter as a small corner note).
+ * Tap "?"           -> mark the selected cell uncertain.
+ * Tap "Notes"       -> toggle note mode.
  * Press and drag    -> mark every cell you pass over with the blank X (the
  *                      Grader analogue of Abodes' "drag paints grass" — X
- *                      marks a cell as definitely not any letter). */
+ *                      marks a cell as definitely not any letter). Works the
+ *                      same in and out of note mode. */
 const DRAG_THRESHOLD = 8;
-const HOLD_DELAY = 400;
 
-function nextCellState(cur, k, question) {
-  if (cur === question) return EMPTY;
-  if (cur === EMPTY) return BLANKMARK;
-  if (cur === BLANKMARK) return letterState(0);
-  if (isLetterState(cur, k)) {
-    const i = letterIndexOf(cur);
-    return i < k - 1 ? letterState(i + 1) : EMPTY;
-  }
-  return EMPTY;
+// A plain tap toggles blank on/off; any other mark (letter, ?) is cleared to
+// empty by a tap rather than converted, so tapping never destroys a placed
+// letter or ? mark you didn't mean to touch by "cycling" past it.
+function tapNextState(cur) {
+  return cur === EMPTY ? BLANKMARK : EMPTY;
 }
 
 function plotCellAt(x, y) {
@@ -347,20 +368,13 @@ function wireBoardInput(root) {
     try { root.setPointerCapture(e.pointerId); } catch {}
     beginBatch();
     p = { id: e.pointerId, startIdx: +cell.dataset.idx, x: e.clientX, y: e.clientY,
-          dragged: false, held: false, painted: new Set(), holdId: null };
-    p.holdId = window.setTimeout(() => {
-      if (!p || p.id !== e.pointerId || p.dragged) return;
-      p.held = true;
-      setCell(p.startIdx, game.question);
-    }, HOLD_DELAY);
+          dragged: false, painted: new Set() };
   });
 
   root.addEventListener("pointermove", (e) => {
     if (!p || e.pointerId !== p.id) return;
-    if (p.held) return;
     if (!p.dragged && Math.hypot(e.clientX - p.x, e.clientY - p.y) < DRAG_THRESHOLD) return;
     if (!p.dragged) {
-      window.clearTimeout(p.holdId);
       p.dragged = true;
       setCell(p.startIdx, BLANKMARK);
       p.painted.add(p.startIdx);
@@ -371,13 +385,18 @@ function wireBoardInput(root) {
     if (!p.painted.has(idx)) { setCell(idx, BLANKMARK); p.painted.add(idx); }
   });
 
-  const endGesture = (e, cycle) => {
+  // `tap` is true only for a real finish (pointerup). A pointercancel — which
+  // fires when the browser hijacks the gesture (e.g. an attempted zoom) — must
+  // NOT register as a tap, or taps get an extra, order-scrambling step.
+  const endGesture = (e, tap) => {
     if (!p || e.pointerId !== p.id) return;
-    window.clearTimeout(p.holdId);
     if (e.pointerType !== "mouse") lastTouchTime = Date.now();
     try { root.releasePointerCapture(e.pointerId); } catch {}
-    if (cycle && !p.dragged && !p.held) {
-      setCell(p.startIdx, nextCellState(game.cells[p.startIdx], game.k, game.question));
+    if (tap && !p.dragged) {
+      if (!game.noteMode) setCell(p.startIdx, tapNextState(game.cells[p.startIdx]));
+      selectCell(p.startIdx);
+    } else if (p.dragged) {
+      selectCell(p.startIdx);
     }
     p = null;
     afterChange();
@@ -389,9 +408,89 @@ function wireBoardInput(root) {
 function afterChange() {
   commitBatch();
   updateUndoButton();
-  saveProgress(game.mode, game.cells, elapsedSec());
+  saveProgress(game.mode, game.cells, elapsedSec(), game.notes);
   refreshState();
   checkWin();
+}
+
+/* --- Selection + bottom action bar ------------------------------------------
+ * The bottom bar's letter buttons and ? act on whichever plot cell was last
+ * tapped or dragged into. Blank (X) never needs the bar — a tap on the board
+ * sets or clears it directly (see tapNextState). */
+function selectCell(idx) {
+  if (game.selected === idx) { updateActionButtons(); return; }
+  const prev = game.selected;
+  game.selected = idx;
+  if (prev != null) {
+    const prevCell = document.querySelector(`#board .cell[data-idx="${prev}"]`);
+    if (prevCell) prevCell.classList.remove("selected");
+  }
+  const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
+  if (cell) cell.classList.add("selected");
+  updateActionButtons();
+}
+function updateActionButtons() {
+  const has = !!game && game.selected != null;
+  document.querySelectorAll("#action-bar .letter-btn, #action-bar .question-btn")
+    .forEach((btn) => { btn.disabled = !has; });
+}
+
+// Build the letter buttons (count depends on the mode's k) plus the ? and
+// Notes toggle. Rebuilt per game start since k varies between Easy and Hard.
+function buildActionBar() {
+  const bar = $("#action-bar");
+  if (!bar) return;
+  let html = "";
+  for (let i = 0; i < game.k; i++) {
+    html += `<button class="action-btn letter-btn" data-letter="${i}" disabled>${letterChar(i)}</button>`;
+  }
+  html += `<button id="question-btn" class="action-btn question-btn" disabled>?</button>`;
+  html += `<button id="note-toggle-btn" class="action-btn note-toggle-btn" aria-pressed="false">✎ Notes</button>`;
+  bar.innerHTML = html;
+
+  bar.querySelectorAll(".letter-btn").forEach((btn) => {
+    btn.addEventListener("click", () => onLetterClick(+btn.dataset.letter));
+  });
+  $("#question-btn").addEventListener("click", () => setSelectedState(game.question));
+  $("#note-toggle-btn").addEventListener("click", toggleNoteMode);
+}
+
+function toggleNoteMode() {
+  game.noteMode = !game.noteMode;
+  const btn = $("#note-toggle-btn");
+  if (btn) {
+    btn.classList.toggle("active", game.noteMode);
+    btn.setAttribute("aria-pressed", String(game.noteMode));
+  }
+}
+
+// Set the selected cell to `state` (used by the ? button).
+function setSelectedState(state) {
+  if (!game || game.selected == null) return;
+  beginBatch();
+  setCell(game.selected, state);
+  commitBatch();
+  afterChange();
+}
+
+// A letter button: outside note mode, sets the selected cell to that letter.
+// In note mode, toggles that letter as a small pencilled-in candidate instead
+// — only meaningful on an EMPTY cell, since any real mark already clears its
+// notes (see setCell).
+function onLetterClick(letterIdx) {
+  if (!game || game.selected == null) return;
+  if (game.noteMode) { toggleNote(game.selected, letterIdx); return; }
+  setSelectedState(letterState(letterIdx));
+}
+
+function toggleNote(idx, letterIdx) {
+  if (game.cells[idx] !== EMPTY) return;
+  const set = game.notes[idx] || (game.notes[idx] = new Set());
+  if (set.has(letterIdx)) set.delete(letterIdx); else set.add(letterIdx);
+  if (set.size === 0) game.notes[idx] = null;
+  const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
+  if (cell) paintCell(cell, game.cells[idx], game.k, game.notes[idx]);
+  saveProgress(game.mode, game.cells, elapsedSec(), game.notes);
 }
 
 // Live conflict feedback — two kinds, both unambiguous (never a false
@@ -679,7 +778,10 @@ function init() {
     commitBatch();
     updateUndoButton();
     clearProgress(game.mode);
+    game.notes.fill(null);
+    game.selected = null;
     renderBoard();
+    updateActionButtons();
   });
   $("#menu-share-btn").addEventListener("click", async () => {
     await copyToClipboard(buildShareText());
