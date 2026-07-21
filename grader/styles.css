@@ -271,11 +271,11 @@ body {
   position: absolute;
   font-family: var(--mono);
   font-weight: 800;
-  font-size: 11px;
+  font-size: 16px;
   line-height: 1;
   color: var(--tent);
 }
-.board.big .note { font-size: 8px; }
+.board.big .note { font-size: 12px; }
 .note-0 { top: 0; left: 0; }
 .note-1 { top: 0; right: 0; }
 .note-2 { bottom: 0; left: 0; }

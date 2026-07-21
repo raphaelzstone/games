@@ -312,26 +312,17 @@ function undoLastAction() {
 }
 
 /* --- Input: pointer (mouse + touch) ----------------------------------------
- * Tap a cell        -> select it, and (outside note mode) directly toggle the
- *                      blank X: empty becomes blank, anything else (blank,
- *                      letter, ?) clears back to empty. No cycling, no
- *                      counting taps.
- * Tap a letter button-> set the selected cell to that letter (or, in note
- *                      mode, toggle that letter as a small corner note).
+ * Tap a cell        -> just select it (a ring, no state change).
+ * Tap "✗" / a letter -> set the selected cell to that state — or, in note
+ *                      mode, a letter instead toggles a small corner note.
+ *                      Pressing the button matching the cell's current state
+ *                      clears it back to empty instead of a no-op.
  * Tap "?"           -> mark the selected cell uncertain.
  * Tap "Notes"       -> toggle note mode.
  * Press and drag    -> mark every cell you pass over with the blank X (the
- *                      Grader analogue of Abodes' "drag paints grass" — X
- *                      marks a cell as definitely not any letter). Works the
- *                      same in and out of note mode. */
+ *                      Grader analogue of Abodes' "drag paints grass"),
+ *                      regardless of selection or note mode. */
 const DRAG_THRESHOLD = 8;
-
-// A plain tap toggles blank on/off; any other mark (letter, ?) is cleared to
-// empty by a tap rather than converted, so tapping never destroys a placed
-// letter or ? mark you didn't mean to touch by "cycling" past it.
-function tapNextState(cur) {
-  return cur === EMPTY ? BLANKMARK : EMPTY;
-}
 
 function plotCellAt(x, y) {
   const el = document.elementFromPoint(x, y);
@@ -392,12 +383,7 @@ function wireBoardInput(root) {
     if (!p || e.pointerId !== p.id) return;
     if (e.pointerType !== "mouse") lastTouchTime = Date.now();
     try { root.releasePointerCapture(e.pointerId); } catch {}
-    if (tap && !p.dragged) {
-      if (!game.noteMode) setCell(p.startIdx, tapNextState(game.cells[p.startIdx]));
-      selectCell(p.startIdx);
-    } else if (p.dragged) {
-      selectCell(p.startIdx);
-    }
+    if (tap) selectCell(p.startIdx);   // plain tap or drag-end: select the cell
     p = null;
     afterChange();
   };
@@ -414,9 +400,8 @@ function afterChange() {
 }
 
 /* --- Selection + bottom action bar ------------------------------------------
- * The bottom bar's letter buttons and ? act on whichever plot cell was last
- * tapped or dragged into. Blank (X) never needs the bar — a tap on the board
- * sets or clears it directly (see tapNextState). */
+ * The bottom bar's ✗, letter, and ? buttons act on whichever plot cell was
+ * last tapped or dragged into. A tap only selects — it never changes state. */
 function selectCell(idx) {
   if (game.selected === idx) { updateActionButtons(); return; }
   const prev = game.selected;
@@ -431,16 +416,17 @@ function selectCell(idx) {
 }
 function updateActionButtons() {
   const has = !!game && game.selected != null;
-  document.querySelectorAll("#action-bar .letter-btn, #action-bar .question-btn")
+  document.querySelectorAll("#action-bar .letter-btn, #action-bar .question-btn, #action-bar .blank-btn")
     .forEach((btn) => { btn.disabled = !has; });
 }
 
-// Build the letter buttons (count depends on the mode's k) plus the ? and
-// Notes toggle. Rebuilt per game start since k varies between Easy and Hard.
+// Build the blank (✗) button, the letter buttons (count depends on the mode's
+// k), the ? button, and the Notes toggle. Rebuilt per game start since k
+// varies between Easy and Hard.
 function buildActionBar() {
   const bar = $("#action-bar");
   if (!bar) return;
-  let html = "";
+  let html = `<button id="blank-btn" class="action-btn blank-btn" disabled>✗</button>`;
   for (let i = 0; i < game.k; i++) {
     html += `<button class="action-btn letter-btn" data-letter="${i}" disabled>${letterChar(i)}</button>`;
   }
@@ -448,6 +434,7 @@ function buildActionBar() {
   html += `<button id="note-toggle-btn" class="action-btn note-toggle-btn" aria-pressed="false">✎ Notes</button>`;
   bar.innerHTML = html;
 
+  $("#blank-btn").addEventListener("click", () => setSelectedState(BLANKMARK));
   bar.querySelectorAll(".letter-btn").forEach((btn) => {
     btn.addEventListener("click", () => onLetterClick(+btn.dataset.letter));
   });
@@ -464,11 +451,14 @@ function toggleNoteMode() {
   }
 }
 
-// Set the selected cell to `state` (used by the ? button).
+// Set the selected cell to `state` (used by the ✗, letter, and ? buttons).
+// Pressing the button matching the cell's current state clears it back to
+// empty instead — a deterministic toggle, not a cycle.
 function setSelectedState(state) {
   if (!game || game.selected == null) return;
   beginBatch();
-  setCell(game.selected, state);
+  const cur = game.cells[game.selected];
+  setCell(game.selected, cur === state ? EMPTY : state);
   commitBatch();
   afterChange();
 }

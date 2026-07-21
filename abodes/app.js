@@ -347,23 +347,16 @@ function undoLastAction() {
 }
 
 /* --- Input: pointer (mouse + touch) ----------------------------------------
- * Tap a cell        -> select it, and directly toggle grass (✗): empty becomes
- *                      grass, anything else (grass/tent/?) clears back to
- *                      empty. No cycling, no counting taps — every tap has one
- *                      deterministic outcome based on the cell's current state.
- * Tap "Tent" / "?"  -> set the selected cell to that state (the buttons below
- *                      the board).
- * Press and drag    -> paint grass across every plot cell you pass over.
+ * Tap a cell        -> just select it (a ring, no state change).
+ * Tap "✗" / "Tent" / "?" -> set the selected cell to that state (the buttons
+ *                      below the board). Pressing the button matching the
+ *                      cell's current state clears it back to empty instead —
+ *                      a deterministic toggle, not a cycle.
+ * Press and drag    -> paint grass across every plot cell you pass over,
+ *                      regardless of selection.
  * Tapping a tree    -> nothing.
  * Tapping a clue    -> fill the rest of that row/column with grass. */
 const DRAG_THRESHOLD = 8;   // px of movement before a press becomes a drag
-
-// A plain tap toggles grass on/off; any non-grass mark (tent, ?) is cleared to
-// empty by a tap rather than converted, so tapping never destroys a tent or ?
-// mark you didn't mean to touch by "cycling" past it.
-function tapNextState(cur) {
-  return cur === EMPTY ? GRASS : EMPTY;
-}
 
 function plotCellAt(x, y) {
   const el = document.elementFromPoint(x, y);
@@ -441,13 +434,7 @@ function wireBoardInput(root) {
     if (!p || e.pointerId !== p.id) return;
     if (e.pointerType !== "mouse") lastTouchTime = Date.now();
     try { root.releasePointerCapture(e.pointerId); } catch {}
-    if (tap && !p.dragged) {
-      // A plain tap toggles grass and selects the cell (see tapNextState).
-      setCell(p.startIdx, tapNextState(game.cells[p.startIdx]));
-      selectCell(p.startIdx);
-    } else if (p.dragged) {
-      selectCell(p.startIdx);
-    }
+    if (tap) selectCell(p.startIdx);   // plain tap or drag-end: select the cell
     p = null;
     afterChange();
   };
@@ -490,9 +477,8 @@ function afterChange() {
 }
 
 /* --- Selection + bottom action bar ------------------------------------------
- * The bottom bar's Tent and ? buttons act on whichever plot cell was last
- * tapped or dragged into. Grass (✗) never needs the bar — a tap on the board
- * sets or clears it directly (see tapNextState). */
+ * The bottom bar's ✗, Tent, and ? buttons act on whichever plot cell was last
+ * tapped or dragged into. A tap only selects — it never changes state. */
 function selectCell(idx) {
   if (game.selected === idx) { updateActionButtons(); return; }
   const prev = game.selected;
@@ -507,15 +493,19 @@ function selectCell(idx) {
 }
 function updateActionButtons() {
   const has = !!game && game.selected != null;
-  const tentBtn = $("#tent-btn"), qBtn = $("#question-btn");
+  const grassBtn = $("#grass-btn"), tentBtn = $("#tent-btn"), qBtn = $("#question-btn");
+  if (grassBtn) grassBtn.disabled = !has;
   if (tentBtn) tentBtn.disabled = !has;
   if (qBtn) qBtn.disabled = !has;
 }
-// Set the selected cell to `state` (used by the Tent and ? buttons).
+// Set the selected cell to `state` (used by the ✗, Tent, and ? buttons).
+// Pressing the button matching the cell's current state clears it back to
+// empty instead — a deterministic toggle, not a cycle.
 function setSelectedState(state) {
   if (!game || game.selected == null) return;
   beginBatch();
-  setCell(game.selected, state);
+  const cur = game.cells[game.selected];
+  setCell(game.selected, cur === state ? EMPTY : state);
   commitBatch();
   afterChange();
 }
@@ -885,6 +875,7 @@ function init() {
     renderBoard();
     updateActionButtons();
   });
+  $("#grass-btn").addEventListener("click", () => setSelectedState(GRASS));
   $("#tent-btn").addEventListener("click", () => setSelectedState(TENT));
   $("#question-btn").addEventListener("click", () => setSelectedState(QUESTION));
   $("#menu-share-btn").addEventListener("click", async () => {
