@@ -89,13 +89,8 @@ function dailyPuzzles() {
     }
     if (!any) break;
   }
-  // Local calendar day number, matching dateKey()'s local-date storage keys —
-  // NOT a UTC epoch diff, which would drift a day off from dateKey() for any
-  // reader not on UTC and hand out yesterday's set for hours after local midnight.
-  const now = new Date();
-  const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const epoch = new Date(2026, 0, 1);
-  const day = Math.floor((localMidnight - epoch) / 86400000);
+  // The puzzle sequence shares the arcade's 5 AM Eastern daily boundary.
+  const day = gameDayNumber();
   const out = [];
   for (let k = 0; k < ROUNDS; k++) {
     const pos = (((day * ROUNDS + k) % idx.length) + idx.length) % idx.length;
@@ -105,14 +100,15 @@ function dailyPuzzles() {
 }
 
 function dateKey(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
+    .formatToParts(d).reduce((out, part) => ({ ...out, [part.type]: part.value }), {});
+  const logicalDay = Date.UTC(+parts.year, +parts.month - 1, +parts.day) - (+parts.hour < 5 ? 86400000 : 0);
+  return new Date(logicalDay).toISOString().slice(0, 10);
 }
 function dateKeyOffset(days) {
-  const d = new Date(); d.setDate(d.getDate() - days); return dateKey(d);
+  return dateKey(new Date(Date.now() - days * 86400000));
 }
+function gameDayNumber() { return Math.floor((Date.parse(`${dateKey()}T00:00:00Z`) - Date.UTC(2026, 0, 1)) / 86400000); }
 function fmtElapsed(sec) {
   const s = Math.max(0, Math.round(sec));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -183,8 +179,7 @@ function startGame() {
     round: 0,
     scores: new Array(ROUNDS).fill(null),   // points earned per round, null = not yet done
     done: new Array(ROUNDS).fill(null),     // 'solved' | 'timeout' | null
-    startMs: performance.now(),             // start of the CURRENT round
-    elapsedBefore: 0,                       // resumed elapsed-in-round, if any
+    roundStartedAt: Date.now(),             // wall-clock start of the CURRENT round
     tickId: null,
     lastPersist: 0,
   };
@@ -197,10 +192,9 @@ function startGame() {
     // normally happen since finishing a round always advances immediately).
     while (game.round < ROUNDS && game.done[game.round]) game.round++;
     if (game.round >= ROUNDS) { finishGame(); return; }
-    // Resuming mid-round: clamp so a very stale save can't show negative time
-    // — instead the first timer tick immediately times the round out, which
-    // is the correct behaviour for a real countdown you walked away from.
-    game.elapsedBefore = Math.min(saved.elapsed || 0, ROUND_LIMIT_SEC);
+    // An absolute timestamp means leaving, reloading, or going back to the
+    // menu never pauses or restarts an active round.
+    game.roundStartedAt = saved.roundStartedAt || (Date.now() - Math.min(saved.elapsed || 0, ROUND_LIMIT_SEC) * 1000);
   }
   showView("game");
   game.tickId = setInterval(updateTimer, 250);
@@ -209,7 +203,7 @@ function startGame() {
 }
 
 function roundElapsedSec() {
-  return game.elapsedBefore + (performance.now() - game.startMs) / 1000;
+  return (Date.now() - game.roundStartedAt) / 1000;
 }
 function updateTimer() {
   if (game.done[game.round]) return;   // frozen on the reveal until Next is clicked
@@ -223,11 +217,11 @@ function updateTimer() {
 function persist() {
   if (!game) return;
   game.lastPersist = performance.now();
-  saveProgress({ round: game.round, scores: game.scores, done: game.done, elapsed: roundElapsedSec() });
+  saveProgress({ round: game.round, scores: game.scores, done: game.done, roundStartedAt: game.roundStartedAt });
 }
 
-// Render the current puzzle's grid + reset the guess box + restart the round
-// clock (unless we're resuming, in which case elapsedBefore is already set).
+// Render the current puzzle's grid. Its wall-clock start is preserved while
+// resuming and reset only when the player advances to a new round.
 function renderRound() {
   const p = game.puzzles[game.round];
   $("#progress-pill").textContent = `Puzzle ${game.round + 1} of ${ROUNDS}`;
@@ -327,8 +321,7 @@ function advanceRound() {
   if (!game || !game.done[game.round]) return;
   $("#next-btn").hidden = true;
   game.round++;
-  game.startMs = performance.now();
-  game.elapsedBefore = 0;
+  game.roundStartedAt = Date.now();
   if (game.round >= ROUNDS) finishGame();
   else renderRound();
 }

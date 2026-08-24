@@ -70,10 +70,10 @@ function seededPick(pool, count, seedStr) {
 }
 
 function dateKey(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
+    .formatToParts(d).reduce((out, part) => ({ ...out, [part.type]: part.value }), {});
+  const logicalDay = Date.UTC(+parts.year, +parts.month - 1, +parts.day) - (+parts.hour < 5 ? 86400000 : 0);
+  return new Date(logicalDay).toISOString().slice(0, 10);
 }
 function fmtClock(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -98,6 +98,7 @@ function showView(name) {
 
 // --- Storage ----------------------------------------------------------------
 const storageKey = () => `combos:${dateKey()}`;
+const progressKey = () => `combos:progress:${dateKey()}`;
 function loadResult() {
   try {
     const r = JSON.parse(localStorage.getItem(storageKey()) || "null");
@@ -113,6 +114,20 @@ function saveResult(result) {
   try { localStorage.setItem(storageKey(), JSON.stringify(result)); }
   catch { /* storage unavailable — game still works */ }
 }
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem(progressKey()) || "null"); } catch { return null; }
+}
+function saveProgress() {
+  if (!game) return;
+  try {
+    localStorage.setItem(progressKey(), JSON.stringify({
+      idx: game.idx, results: game.results, penaltyMs: game.penaltyMs,
+      roundStartedAt: game.roundStartedAt, active: !!game.tickId,
+      found: game.puzzles.map((p) => p.found),
+    }));
+  } catch {}
+}
+function clearProgress() { try { localStorage.removeItem(progressKey()); } catch {} }
 
 // --- Streak -------------------------------------------------------------
 const STREAK_KEY = "combos:streak";
@@ -121,9 +136,7 @@ function loadStreakRaw() {
   catch { return null; }
 }
 function dateKeyOffset(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return dateKey(d);
+  return dateKey(new Date(Date.now() - days * 86400000));
 }
 function currentStreak() {
   const s = loadStreakRaw();
@@ -177,15 +190,21 @@ let game = null;
 function startGame() {
   const existing = loadResult();
   if (existing) { renderResults(existing, /*replay*/ true); return; }
-
-  game = { puzzles: buildPuzzles(), idx: 0, results: [], puzzleStart: 0, penaltyMs: 0, tickId: null };
+  const saved = loadProgress();
+  const puzzles = buildPuzzles();
+  if (saved?.found) saved.found.forEach((found, i) => { if (Array.isArray(found) && puzzles[i]) puzzles[i].found = found; });
+  game = {
+    puzzles, idx: saved?.idx || 0, results: Array.isArray(saved?.results) ? saved.results : [],
+    penaltyMs: saved?.penaltyMs || 0, roundStartedAt: saved?.roundStartedAt || 0, tickId: null,
+  };
   showView("game");
-  showPuzzle(0);
+  if (saved && !saved.active && game.results.length > game.idx) showInterstitial(game.results[game.idx]);
+  else showPuzzle(game.idx, !!saved?.roundStartedAt);
 }
 
-function showPuzzle(i) {
+function showPuzzle(i, resume = false) {
   game.idx = i;
-  game.penaltyMs = 0;
+  if (!resume) { game.penaltyMs = 0; game.roundStartedAt = Date.now(); }
   const p = game.puzzles[i];
   $("#progress-pill").textContent = `Round ${i + 1} of ${ROUNDS}`;
   $("#skip-btn").hidden = false;
@@ -194,7 +213,6 @@ function showPuzzle(i) {
   root.innerHTML = "";
   root.appendChild(renderCombo(p));
 
-  game.puzzleStart = performance.now();
   updateCountdown();
   game.tickId = setInterval(tick, 200);
 
@@ -202,13 +220,14 @@ function showPuzzle(i) {
   if (first) first.focus();
 }
 
-function elapsedMs() { return performance.now() - game.puzzleStart + game.penaltyMs; }
+function elapsedMs() { return Date.now() - game.roundStartedAt + game.penaltyMs; }
 function remainingMs() { return ROUND_LIMIT_SEC * 1000 - elapsedMs(); }
 function elapsedSec() { return Math.min(ROUND_LIMIT_SEC, elapsedMs() / 1000); }
 
 function tick() {
   updateCountdown();
   if (remainingMs() <= 0) endPuzzle();
+  else saveProgress();
 }
 
 function updateCountdown() {
@@ -223,6 +242,7 @@ function penalize() {
   game.penaltyMs += WRONG_PENALTY_SEC * 1000;
   updateCountdown();
   if (remainingMs() <= 0) endPuzzle();
+  else saveProgress();
 }
 
 // Called on solve, time-out, or skip. Scores the current puzzle and advances.
@@ -238,6 +258,7 @@ function endPuzzle() {
   const solved = found === total;
   const result = { solved, found, total, sec, points: comboScore(found, total, sec) };
   game.results.push(result);
+  saveProgress();
   showInterstitial(result);
 }
 
@@ -283,6 +304,7 @@ function finishGame() {
     reveal: game.puzzles.map((p) => `${p.frame}  =  ${p.answers.join(" ")}`),
   };
   saveResult(result);
+  clearProgress();
   bumpStreak();
   // Best-effort leaderboard submission. Fire-and-forget so it can't slow the
   // results screen; the local save above is the source of truth.
@@ -494,6 +516,7 @@ async function showLeaderboard() {
 }
 
 function stopGame() {
+  saveProgress();
   if (game && game.tickId) clearInterval(game.tickId);
 }
 
@@ -506,6 +529,8 @@ function init() {
   $("#results-menu-btn").addEventListener("click", () => { refreshMenu(); showView("menu"); });
   $("#board-menu-btn").addEventListener("click", () => { refreshMenu(); showView("menu"); });
   $("#skip-btn").addEventListener("click", () => { if (game) endPuzzle(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) saveProgress(); });
+  window.addEventListener("pagehide", saveProgress);
   $("#name-btn").addEventListener("click", promptForName);
   $("#menu-board-btn").addEventListener("click", showLeaderboard);
   wireBoardExpand();

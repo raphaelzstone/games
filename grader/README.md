@@ -7,7 +7,7 @@ letter you'd see first looking into that row or column from that side.
 ## Modes
 
 - **Easy** — a 5×5 grid, letters A–C.
-- **Hard** — a 7×7 grid, letters A–D.
+- **Hard** — a 6×6 grid, letters A–D.
 
 Both boards are date-seeded picks from pre-verified pools (`puzzles.js`,
 `puzzles-hard.js`), so everyone gets the same fresh puzzle each day.
@@ -32,10 +32,8 @@ Because that solver never guesses, a full solve also proves the solution is
 unique. Cross-checked against an independent brute-force solution counter on
 sampled output.
 
-Yield differs sharply by size: ~44% of random 5×5/A-C grids are pure-logic
-solvable; only ~3.6% of random 7×7/A-D grids are (and every one of those
-needed the contradiction step) — Hard is a meaningfully harder puzzle class,
-not just a bigger board.
+Hard uses the same verification process with a denser 6×6 A–D board, so it
+remains a meaningfully harder puzzle class rather than just a larger grid.
 
 ## Clue minimization
 
@@ -46,15 +44,17 @@ pure-deduction solver without it. A dropped clue can never make the solver
 assert a wrong value — it only removes a restriction — so this can't weaken
 the uniqueness proof; it just means fewer of the clues were actually load-
 bearing. The result is locally minimal (not globally minimum, since it's
-order-dependent) and varies puzzle to puzzle: on average Easy ships with
-~7 of its 20 possible clues, Hard with ~14 of 28. Missing clues render as
-blank boxes on the board.
+order-dependent) and varies puzzle to puzzle. The Hard pool keeps its full
+set of clues for a cleaner, more approachable 6×6 experience. Missing clues
+render as blank boxes on the board.
 
 ## Controls
 
-- **Tap** a square to cycle it: blank ✗ → A → B → C (→ D on Hard) → empty.
-- **Press & hold** a square to mark it **?** when unsure; tap once to clear.
+- **Tap** a square to select it, then use the buttons below the board to add a
+  letter, blank ✗, or ?.
 - **Press & drag** to mark a run of squares blank (✗) at once.
+- **Ansatz** starts a colored, reversible line of reasoning. Choose
+  **Verified** to commit it or **Discard** to restore the earlier board.
 
 ## Identity (bird names)
 

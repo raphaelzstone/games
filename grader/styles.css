@@ -264,22 +264,7 @@ body {
 .board.big .letter { font-size: 18px; }
 .glyph { width: 60%; height: 60%; display: block; }
 .glyph.blank { color: #9bab8c; }
-
-/* Pencilled-in candidate letters — up to four, one per corner. */
-.notes { position: absolute; inset: 6%; pointer-events: none; }
-.note {
-  position: absolute;
-  font-family: var(--mono);
-  font-weight: 800;
-  font-size: 16px;
-  line-height: 1;
-  color: var(--tent);
-}
-.board.big .note { font-size: 12px; }
-.note-0 { top: 0; left: 0; }
-.note-1 { top: 0; right: 0; }
-.note-2 { bottom: 0; left: 0; }
-.note-3 { bottom: 0; right: 0; }
+.cell.is-ansatz .letter, .cell.is-ansatz .glyph.blank, .cell.is-ansatz .question-mark { color: var(--tent); }
 
 /* Clue cells (edge letters) — static, not interactive. */
 .clue {
@@ -296,7 +281,7 @@ body {
 .game-actions { display: flex; justify-content: center; gap: 12px; margin-top: 4px; }
 .game-actions .ghost-btn { margin: 20px 0 0; }
 
-/* Bottom action bar (letters / ? / Notes) ---------------------------------- */
+/* Bottom action bar (letters / ? / Ansatz) --------------------------------- */
 .action-bar {
   display: flex;
   justify-content: center;
@@ -320,11 +305,10 @@ body {
 .action-btn:hover:not(:disabled) { background: var(--accent); }
 .action-btn:active:not(:disabled) { transform: scale(.97); }
 .action-btn:disabled { opacity: .35; cursor: default; }
-/* The Notes toggle is never disabled (it doesn't need a selection) and turns
- * the "classic orange" used for pencilled-in candidates when active, so it's
- * obvious at a glance which mode you're in. */
-.note-toggle-btn { font-family: var(--sans); font-size: 14px; font-weight: 700; }
-.note-toggle-btn.active { background: var(--tent); color: #3a2410; }
+.ansatz-toggle-btn, .verify-ansatz-btn { font-family: var(--sans); font-size: 14px; font-weight: 700; }
+.ansatz-toggle-btn { background: var(--tent); color: #3a2410; }
+.verify-ansatz-btn { background: var(--tent); color: #3a2410; }
+.discard-ansatz-btn { margin: 0; align-self: center; }
 
 /* Buttons ----------------------------------------------------------------- */
 .ghost-btn {

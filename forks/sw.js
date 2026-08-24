@@ -6,7 +6,7 @@
  * Firebase CDN and Firestore endpoints are cross-origin and skipped entirely,
  * so the leaderboard simply doesn't work offline (everything else does).
  */
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const CACHE = `forks-${CACHE_VERSION}`;
 
 const SHELL = [

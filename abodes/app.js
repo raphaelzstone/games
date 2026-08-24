@@ -58,23 +58,21 @@ function dailyPuzzle(mode) {
   }
   // Day number since an epoch picks how far into the shuffled order we are, so
   // consecutive days step through distinct puzzles.
-  const epoch = Date.UTC(2026, 0, 1);
-  const day = Math.floor((Date.now() - epoch) / 86400000);
+  const day = gameDayNumber();
   const pos = ((day % idx.length) + idx.length) % idx.length;
   return pool[idx[pos]];
 }
 
 function dateKey(d = new Date()) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23" })
+    .formatToParts(d).reduce((out, part) => ({ ...out, [part.type]: part.value }), {});
+  const logicalDay = Date.UTC(+parts.year, +parts.month - 1, +parts.day) - (+parts.hour < 5 ? 86400000 : 0);
+  return new Date(logicalDay).toISOString().slice(0, 10);
 }
 function dateKeyOffset(days) {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  return dateKey(d);
+  return dateKey(new Date(Date.now() - days * 86400000));
 }
+function gameDayNumber() { return Math.floor((Date.parse(`${dateKey()}T00:00:00Z`) - Date.UTC(2026, 0, 1)) / 86400000); }
 function fmtElapsed(sec) {
   const s = Math.round(sec);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -138,7 +136,7 @@ function saveResult(mode, result) {
 // resumes both the layout and the clock (not a reset to 0:00). Older saves were
 // a bare cells array; loadProgress callers handle both shapes.
 function saveProgress(mode, cells, elapsed) {
-  try { localStorage.setItem(progressKey(mode), JSON.stringify({ cells, elapsed: elapsed || 0 })); } catch {}
+  try { localStorage.setItem(progressKey(mode), JSON.stringify({ cells, elapsed: elapsed || 0, startedAt: game?.mode === mode ? game.startedAt : Date.now() - (elapsed || 0) * 1000 })); } catch {}
 }
 function loadProgress(mode) {
   try { return JSON.parse(localStorage.getItem(progressKey(mode)) || "null"); }
@@ -148,7 +146,7 @@ function loadProgress(mode) {
 function readProgress(mode) {
   const saved = loadProgress(mode);
   if (Array.isArray(saved)) return { cells: saved, elapsed: 0 };          // legacy
-  if (saved && typeof saved === "object") return { cells: saved.cells, elapsed: saved.elapsed || 0 };
+  if (saved && typeof saved === "object") return { cells: saved.cells, elapsed: saved.elapsed || 0, startedAt: saved.startedAt };
   return null;
 }
 function clearProgress(mode) {
@@ -195,12 +193,12 @@ function startGame(mode) {
   const n = puzzle.size;
   const cells = new Array(n * n).fill(EMPTY);
   const saved = readProgress(mode);
-  let elapsedBefore = 0;
+  let startedAt = Date.now();
   if (saved) {
     if (Array.isArray(saved.cells) && saved.cells.length === n * n) {
       for (let i = 0; i < cells.length; i++) cells[i] = saved.cells[i] || EMPTY;
     }
-    elapsedBefore = saved.elapsed;      // resume the clock where it left off
+    startedAt = saved.startedAt || (Date.now() - (saved.elapsed || 0) * 1000);
   }
   game = {
     mode, puzzle, n,
@@ -209,8 +207,7 @@ function startGame(mode) {
     cells,
     selected: null,   // idx of the currently-selected plot cell, or null
     history: [],   // stack of batches of {idx, prev} — one batch per user action
-    startMs: performance.now(),
-    elapsedBefore,
+    startedAt,
     tickId: null,
     lastPersist: 0,
   };
@@ -224,7 +221,7 @@ function startGame(mode) {
 }
 
 function elapsedSec() {
-  return game.elapsedBefore + (performance.now() - game.startMs) / 1000;
+  return (Date.now() - game.startedAt) / 1000;
 }
 function updateTimer() {
   $("#timer").textContent = fmtElapsed(elapsedSec());

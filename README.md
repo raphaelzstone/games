@@ -14,7 +14,7 @@ Live at `https://raphaelzstone.github.io/games/`.
 | **Combos** | [`combos/`](combos/) | A daily word puzzle — find every two-letter fill that makes a real word. Three rounds a day. |
 | **Forks** | [`forks/`](forks/) | A daily word puzzle — given the split, find the one shared word. Two rounds a day. |
 | **Staircases** | [`staircases/`](staircases/) | Three daily word puzzles — find the hidden 3-letter word that climbs through four rows. |
-| **Grader** | [`grader/`](grader/) | A daily "End View" logic puzzle — place each letter once in every row and column; outside clues show what you'd see first. Easy (5×5, A-C) and Hard (7×7, A-D). |
+| **Grader** | [`grader/`](grader/) | A daily "End View" logic puzzle — place each letter once in every row and column; outside clues show what you'd see first. Easy (5×5, A-C) and Hard (6×6, A-D). |
 | **Square Up** | [`squareup/`](squareup/) | *(currently offline — see below)* A daily dissection puzzle — split a shape into two pieces that reassemble into a perfect square. |
 
 Combos and Forks used to be one combined "Word Split" game; they're now split

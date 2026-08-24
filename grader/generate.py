@@ -3,7 +3,7 @@
 
 End View (a.k.a. "Easy as ABC") rules, as implemented here:
 
-  * The grid is N x N; K < N letters are used (e.g. 5x5 with A-C, 7x7 with A-D).
+  * The grid is N x N; K < N letters are used (e.g. 5x5 with A-C, 6x6 with A-D).
   * Each row and column contains each letter exactly once among its filled
     cells; the remaining N-K cells in every row and column are blank.
   * Clues on all four sides give the first non-blank letter seen scanning
@@ -48,23 +48,26 @@ PRESETS = {
         "label": "5x5, A-C",
     },
     "hard": {
-        "n": 7, "k": 4,
+        "n": 6, "k": 4,
         "pool_size": 500,
         "out_file": "puzzles-hard.js",
         "var_name": "GRADER_PUZZLES_HARD",
         "seed": 20260716,
-        "label": "7x7, A-D",
+        "label": "6x6, A-D",
+        "minimize_clues": False,
     },
 }
 
 N = 5
 K = 3
+MINIMIZE_CLUES = True
 BLANK = "."
 
 
 def configure(preset):
-    global N, K
+    global N, K, MINIMIZE_CLUES
     N, K = preset["n"], preset["k"]
+    MINIMIZE_CLUES = preset.get("minimize_clues", True)
 
 
 # --- Random valid solution ---------------------------------------------------
@@ -320,7 +323,8 @@ def make_puzzle(rng):
     left, right, top, bot = derive_clues(grid)
     if not fully_solves(left, right, top, bot, grid):
         return None
-    left, right, top, bot = minimize_clues(grid, left, right, top, bot, rng)
+    if MINIMIZE_CLUES:
+        left, right, top, bot = minimize_clues(grid, left, right, top, bot, rng)
     out_grid = [[(-1 if v == BLANK else v) for v in row] for row in grid]
     return {
         "n": N, "k": K, "grid": out_grid,
