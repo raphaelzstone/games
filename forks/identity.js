@@ -82,5 +82,11 @@ function setUserName(name) {
   saveUser(u);
   return u;
 }
+function setAnonymous(anonymous) {
+  const u = getOrCreateUser();
+  u.anonymous = !!anonymous;
+  saveUser(u);
+  return u;
+}
 
-window.ForksUser = { getOrCreateUser, setUserName, randomBirdName };
+window.ForksUser = { getOrCreateUser, setUserName, setAnonymous, randomBirdName };

@@ -309,7 +309,7 @@ function finishGame() {
   // Best-effort leaderboard submission. Fire-and-forget so it can't slow the
   // results screen; the local save above is the source of truth.
   const user = window.CombosUser.getOrCreateUser();
-  window.Leaderboard?.submitScore?.({
+  if (!user.anonymous) window.Leaderboard?.submitScore?.({
     userId: user.id, name: user.name, date: result.date, score: result.score,
   });
   renderResults(result, false);
@@ -424,6 +424,7 @@ function refreshMenu() {
   $("#date-label").textContent = dateKey();
   const user = window.CombosUser.getOrCreateUser();
   $("#player-name").textContent = user.name;
+  $("#anonymous-toggle").checked = !!user.anonymous;
   const streak = currentStreak();
   const streakEl = $("#streak");
   streakEl.textContent = streak >= 1 ? `🔥 ${streak} day${streak === 1 ? "" : "s"}` : "";
@@ -532,6 +533,7 @@ function init() {
   document.addEventListener("visibilitychange", () => { if (document.hidden) saveProgress(); });
   window.addEventListener("pagehide", saveProgress);
   $("#name-btn").addEventListener("click", promptForName);
+  $("#anonymous-toggle").addEventListener("change", (e) => { window.CombosUser.setAnonymous(e.target.checked); refreshMenu(); });
   $("#menu-board-btn").addEventListener("click", showLeaderboard);
   wireBoardExpand();
   $("#menu-share-btn").addEventListener("click", async () => {

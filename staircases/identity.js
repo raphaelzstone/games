@@ -76,5 +76,11 @@ function setUserName(name) {
   saveUser(u);
   return u;
 }
+function setAnonymous(anonymous) {
+  const u = getOrCreateUser();
+  u.anonymous = !!anonymous;
+  saveUser(u);
+  return u;
+}
 
-window.StaircasesUser = { getOrCreateUser, setUserName, randomBirdName };
+window.StaircasesUser = { getOrCreateUser, setUserName, setAnonymous, randomBirdName };

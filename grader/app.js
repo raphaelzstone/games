@@ -587,7 +587,7 @@ function finishGame() {
   clearProgress(mode);
   bumpStreak();
   const user = window.GraderUser.getOrCreateUser();
-  window.Leaderboard?.submitScore?.({
+  if (!user.anonymous) window.Leaderboard?.submitScore?.({
     userId: user.id, name: user.name, date: result.date, seconds: result.seconds, mode,
   });
   renderResults(mode, result, false);
@@ -646,6 +646,7 @@ function refreshMenu() {
   $("#date-label").textContent = dateKey();
   const user = window.GraderUser.getOrCreateUser();
   $("#player-name").textContent = user.name;
+  $("#anonymous-toggle").checked = !!user.anonymous;
   const streak = currentStreak();
   const streakEl = $("#streak");
   streakEl.textContent = streak >= 1 ? `🔥 ${streak} day${streak === 1 ? "" : "s"}` : "";
@@ -755,6 +756,7 @@ function init() {
   $("#results-menu-btn").addEventListener("click", () => { refreshMenu(); showView("menu"); });
   $("#board-menu-btn").addEventListener("click", () => { refreshMenu(); showView("menu"); });
   $("#name-btn").addEventListener("click", promptForName);
+  $("#anonymous-toggle").addEventListener("change", (e) => { window.GraderUser.setAnonymous(e.target.checked); refreshMenu(); });
   $("#menu-board-btn").addEventListener("click", showLeaderboard);
   $("#menu-rules-btn").addEventListener("click", () => {
     const box = $("#rules-box");

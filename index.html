@@ -19,7 +19,7 @@
       </span>
     </header>
 
-    <p class="who">Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button></p>
+    <p class="who">Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button> <label class="anonymous-toggle" title="Keep local results, but do not submit scores to leaderboards."><input id="anonymous-toggle" type="checkbox" /> Anonymous</label></p>
 
     <p class="tagline">A little arcade of daily logic puzzles. A fresh set every day, the same for everyone — race the clock, keep your streak.</p>
 
@@ -108,6 +108,14 @@
       <div class="mini-panels" id="mini-panels"></div>
     </section>
 
+    <section class="feedback" aria-labelledby="feedback-title">
+      <h2 id="feedback-title">Feedback</h2>
+      <p>Found a bug or have an idea for a game?</p>
+      <textarea id="feedback-text" rows="4" maxlength="2000" placeholder="Tell us what you think…"></textarea>
+      <button id="feedback-send-btn" class="feedback-send-btn">Send feedback</button>
+      <p class="feedback-note">This opens a prefilled GitHub issue in a new tab.</p>
+    </section>
+
     <p class="footnote">More games coming. Each keeps its own daily puzzle, leaderboard, and streak.</p>
   </main>
 
@@ -117,13 +125,30 @@
      * identity the games use, so a change here shows up everywhere. */
     (function () {
       var nameEl = document.getElementById("player-name");
-      nameEl.textContent = window.GamesUser.getOrCreateUser().name;
+      var anonymousToggle = document.getElementById("anonymous-toggle");
+      function refreshIdentity() {
+        var user = window.GamesUser.getOrCreateUser();
+        nameEl.textContent = user.name;
+        anonymousToggle.checked = !!user.anonymous;
+      }
+      refreshIdentity();
       document.getElementById("name-btn").addEventListener("click", function () {
         var cur = window.GamesUser.getOrCreateUser().name;
         var next = window.prompt("Pick a username (or leave blank to randomize):", cur);
         if (next === null) return;
         var name = next.trim() ? next : window.GamesUser.randomBirdName();
-        nameEl.textContent = window.GamesUser.setUserName(name).name;
+        window.GamesUser.setUserName(name);
+        refreshIdentity();
+      });
+      anonymousToggle.addEventListener("change", function () {
+        window.GamesUser.setAnonymous(anonymousToggle.checked);
+        refreshIdentity();
+      });
+      document.getElementById("feedback-send-btn").addEventListener("click", function () {
+        var text = document.getElementById("feedback-text").value.trim();
+        if (!text) { document.getElementById("feedback-text").focus(); return; }
+        var url = "https://github.com/raphaelzstone/games/issues/new?title=" + encodeURIComponent("Games feedback") + "&body=" + encodeURIComponent(text);
+        window.open(url, "_blank", "noopener");
       });
     })();
   </script>

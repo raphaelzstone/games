@@ -84,6 +84,8 @@ body {
 }
 .name-btn:hover { background: rgba(0,0,0,.05); }
 .name-btn .pencil { color: var(--muted); font-size: 12px; margin-left: 2px; }
+.anonymous-toggle { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; color: var(--muted); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.anonymous-toggle input { accent-color: var(--accent); margin: 0; }
 .streak {
   margin-left: 8px;
   padding: 2px 8px;

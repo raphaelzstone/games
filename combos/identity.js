@@ -82,5 +82,11 @@ function setUserName(name) {
   saveUser(u);
   return u;
 }
+function setAnonymous(anonymous) {
+  const u = getOrCreateUser();
+  u.anonymous = !!anonymous;
+  saveUser(u);
+  return u;
+}
 
-window.CombosUser = { getOrCreateUser, setUserName, randomBirdName };
+window.CombosUser = { getOrCreateUser, setUserName, setAnonymous, randomBirdName };

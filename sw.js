@@ -5,7 +5,7 @@
  *
  * Strategy: cache-first for same-scope GETs, falling back to network. Requests
  * for the game subfolders are left to the network / their own workers. */
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const CACHE = `games-hub-${CACHE_VERSION}`;
 
 const SHELL = [

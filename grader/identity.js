@@ -82,5 +82,11 @@ function setUserName(name) {
   saveUser(u);
   return u;
 }
+function setAnonymous(anonymous) {
+  const u = getOrCreateUser();
+  u.anonymous = !!anonymous;
+  saveUser(u);
+  return u;
+}
 
-window.GraderUser = { getOrCreateUser, setUserName, randomBirdName };
+window.GraderUser = { getOrCreateUser, setUserName, setAnonymous, randomBirdName };
