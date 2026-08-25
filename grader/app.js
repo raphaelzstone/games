@@ -154,7 +154,10 @@ function startGame(mode) {
   let startedAt = Date.now();
   if (saved && Array.isArray(saved.cells) && saved.cells.length === n * n) {
     for (let i = 0; i < cells.length; i++) cells[i] = saved.cells[i] || EMPTY;
-    startedAt = saved.startedAt || (Date.now() - (saved.elapsed || 0) * 1000);
+    // Pause semantics: resume from the frozen elapsed time, not wall-clock
+    // since the last save — a reload (or a background+close) shouldn't count
+    // time away against you, unlike the word games' live countdown.
+    startedAt = Date.now() - (saved.elapsed || 0) * 1000;
   }
   game = {
     mode, puzzle, n, k,
@@ -180,7 +183,7 @@ function startGame(mode) {
 }
 
 function elapsedSec() {
-  return (Date.now() - game.startedAt) / 1000;
+  return game.paused ? game.frozenElapsed : (Date.now() - game.startedAt) / 1000;
 }
 function updateTimer() {
   $("#timer").textContent = fmtElapsed(elapsedSec());
@@ -191,6 +194,24 @@ function updateTimer() {
 }
 function persistProgress() {
   if (game && game.tickId) saveProgress(game.mode, game.cells, elapsedSec());
+}
+
+// Backgrounding the tab actually stops the clock (unlike the word games' timed
+// rounds) — freeze elapsed time, resuming only once the tab is visible again.
+function pauseClock() {
+  if (!game || !game.tickId || game.paused) return;
+  game.frozenElapsed = elapsedSec();
+  game.paused = true;
+  clearInterval(game.tickId);
+  game.tickId = null;
+  saveProgress(game.mode, game.cells, game.frozenElapsed);
+}
+function resumeClock() {
+  if (!game || !game.paused) return;
+  game.paused = false;
+  game.startedAt = Date.now() - game.frozenElapsed * 1000;
+  game.tickId = setInterval(updateTimer, 250);
+  updateTimer();
 }
 
 function renderBoard() {
@@ -746,8 +767,13 @@ function init() {
   refreshMenu();
   buildRulesDiagram();
 
-  document.addEventListener("visibilitychange", () => { if (document.hidden) persistProgress(); });
-  window.addEventListener("pagehide", persistProgress);
+  // Pause the running clock when the tab is hidden (mobile app switch, lock
+  // screen, switching tabs) and resume it when it's visible again, so time
+  // away doesn't count against you.
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) pauseClock(); else resumeClock();
+  });
+  window.addEventListener("pagehide", pauseClock);
 
   document.querySelectorAll(".mode-card[data-mode]").forEach((card) => {
     card.addEventListener("click", () => startGame(card.dataset.mode));
