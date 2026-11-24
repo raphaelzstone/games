@@ -218,6 +218,7 @@ function renderBoard() {
   const root = $("#board");
   buildGrid(root, game.puzzle, game.cells, /*interactive*/ true);
   refreshState();
+  updateRefutedHighlight();
 }
 
 // Shared grid builder, also used for the read-only solved board on the results
@@ -270,7 +271,10 @@ function paintCell(cell, state, k) {
   cell.classList.toggle("is-blank", state === BLANKMARK);
   cell.classList.toggle("is-letter", isLetterState(state, k));
   cell.classList.toggle("is-question", state === question);
-  cell.classList.toggle("is-ansatz", !!game?.ansatzActive);
+  // Only cells changed since Ansatz began read as guesses.
+  const idx = +cell.dataset.idx;
+  cell.classList.toggle("is-ansatz", !!game?.ansatzActive && !!game.ansatzStart
+    && state !== game.ansatzStart.cells[idx]);
   if (state === BLANKMARK) {
     cell.innerHTML = `<svg class="glyph blank" viewBox="0 0 100 100" aria-hidden="true">
       <path d="M34 34 L66 66 M66 34 L34 66" stroke="currentColor" stroke-width="11"
@@ -286,6 +290,7 @@ function paintCell(cell, state, k) {
 
 function setCell(idx, state) {
   if (game.cells[idx] === state) return;
+  if (game.ansatzActive && game.ansatzStart.firstIdx == null) game.ansatzStart.firstIdx = idx;
   if (pendingBatch) pendingBatch.push({ idx, prev: game.cells[idx] });
   game.cells[idx] = state;
   const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
@@ -302,10 +307,15 @@ function commitBatch() {
 }
 function updateUndoButton() {
   const btn = $("#undo-btn");
-  if (btn) btn.disabled = !game || !game.history.length;
+  if (btn) btn.disabled = !canUndo();
+}
+// Inside an Ansatz, undo stops at the point the Ansatz began.
+function canUndo() {
+  if (!game || !game.history.length) return false;
+  return !game.ansatzActive || game.history.length > game.ansatzStart.historyLength;
 }
 function undoLastAction() {
-  if (!game || !game.history.length) return;
+  if (!canUndo()) return;
   const batch = game.history.pop();
   for (let i = batch.length - 1; i >= 0; i--) {
     const { idx, prev } = batch[i];
@@ -316,6 +326,18 @@ function undoLastAction() {
   saveProgress(game.mode, game.cells, elapsedSec());
   refreshState();
   updateUndoButton();
+  updateRefutedHighlight();
+}
+
+// A discarded Ansatz is recorded as its own (empty) history turn carrying the
+// cell where the Ansatz started. That cell is highlighted only while that turn
+// is the latest one: the next move clears it, undoing that move restores it.
+function updateRefutedHighlight() {
+  const top = game.history[game.history.length - 1];
+  const hi = top && top.refutedIdx != null ? top.refutedIdx : -1;
+  document.querySelectorAll("#board .cell.plot").forEach((el) => {
+    el.classList.toggle("refuted", +el.dataset.idx === hi);
+  });
 }
 
 /* --- Input: pointer (mouse + touch) ----------------------------------------
@@ -402,6 +424,7 @@ function afterChange() {
   updateUndoButton();
   saveProgress(game.mode, game.cells, elapsedSec());
   refreshState();
+  updateRefutedHighlight();
   if (!game.ansatzActive) checkWin();
 }
 
@@ -480,6 +503,12 @@ function discardAnsatz() {
   if (!game?.ansatzActive || !game.ansatzStart) return;
   game.cells = game.ansatzStart.cells.slice();
   game.history.length = game.ansatzStart.historyLength;
+  const firstIdx = game.ansatzStart.firstIdx;
+  if (firstIdx != null) {
+    const turn = [];
+    turn.refutedIdx = firstIdx;
+    game.history.push(turn);
+  }
   game.selected = null;
   game.ansatzActive = false;
   game.ansatzStart = null;
