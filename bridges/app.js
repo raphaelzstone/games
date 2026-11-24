@@ -134,6 +134,8 @@ function bumpStreak() {
  * a saved progress array of per-connection bridge counts stays valid.
  * ========================================================================= */
 function buildGeometry(puzzle) {
+  // Boards are cropped to their islands, so they can be rectangular.
+  const w = puzzle.w ?? puzzle.n, h = puzzle.h ?? puzzle.n;
   const isl = puzzle.islands.map(([r, c, need]) => ({ r, c, need }));
   const at = new Map(isl.map((s, i) => [s.r * 100 + s.c, i]));
   const edges = [];
@@ -141,7 +143,7 @@ function buildGeometry(puzzle) {
   isl.forEach((s, i) => {
     for (const [dr, dc] of [[0, 1], [1, 0]]) {
       let r = s.r + dr, c = s.c + dc;
-      while (r < puzzle.n && c < puzzle.n) {
+      while (r < h && c < w) {
         const j = at.get(r * 100 + c);
         if (j != null) {
           const e = edges.length;
@@ -168,7 +170,7 @@ function buildGeometry(puzzle) {
   });
   const inc = isl.map(() => []);
   edges.forEach((e, x) => { inc[e.a].push(x); inc[e.b].push(x); });
-  return { n: puzzle.n, isl, edges, cross, inc, pairIndex };
+  return { w, h, isl, edges, cross, inc, pairIndex };
 }
 
 function solutionVals(puzzle, geo) {
@@ -291,11 +293,11 @@ function bridgeLines(geo, x, k, cls) {
 // opts: { interactive, ansatzBase (vals at Ansatz start, or null), refuted
 // ({edge, val} or null), selected (island idx or null) }
 function svgBoard(geo, vals, opts = {}) {
-  const n = geo.n, size = n * U;
+  const { w, h } = geo;
   const cnt = islandCounts(geo, vals);
-  let s = `<svg class="bridges-svg" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`;
+  let s = `<svg class="bridges-svg" viewBox="0 0 ${w * U} ${h * U}" xmlns="http://www.w3.org/2000/svg">`;
   const occupied = new Set(geo.isl.map((t) => t.r * 100 + t.c));
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
     if (!occupied.has(r * 100 + c)) s += `<circle class="dot" cx="${c * U + U / 2}" cy="${r * U + U / 2}" r="0.55"/>`;
   }
   // Neighbors of the selected island get a soft ring, so you can see where a
@@ -336,6 +338,12 @@ function svgBoard(geo, vals, opts = {}) {
   return s + `</svg>`;
 }
 
+// Match the box to the board's shape (plus its padding) so nothing letterboxes.
+function sizeBoard(el, geo) {
+  el.style.aspectRatio = `${geo.w} / ${geo.h}`;
+  el.classList.toggle("big", Math.max(geo.w, geo.h) > 8);
+}
+
 function currentRefuted() {
   const top = game.history[game.history.length - 1];
   return top && top.refuted ? top.refuted : null;
@@ -344,7 +352,7 @@ function currentRefuted() {
 function renderBoard() {
   if (!game) return;  // the move that just ran may have finished the game
   const root = $("#board");
-  root.classList.toggle("big", game.geo.n > 8);
+  sizeBoard(root, game.geo);
   root.innerHTML = svgBoard(game.geo, game.vals, {
     interactive: true,
     ansatzBase: game.ansatzActive ? game.ansatzStart.vals : null,
@@ -586,7 +594,7 @@ function renderResults(mode, result, replay) {
   const puzzle = dailyPuzzle(mode);
   const geo = buildGeometry(puzzle);
   const board = $("#solved-board");
-  board.classList.toggle("big", geo.n > 8);
+  sizeBoard(board, geo);
   board.innerHTML = svgBoard(geo, solutionVals(puzzle, geo));
   showView("results");
 }

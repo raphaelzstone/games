@@ -11,9 +11,13 @@ Join the numbered islands with bridges so that:
 
 ## Modes
 
-- **Easy**: a 7×7 sea with 12 to 16 islands.
-- **Hard**: a 10×10 sea with 22 to 28 islands, and every puzzle needs at least
-  two proof-by-contradiction steps.
+- **Easy**: 12 to 16 islands, grown on a 7×7 canvas.
+- **Hard**: 22 to 28 islands, grown on a 10×10 canvas, and every puzzle needs
+  at least two proof-by-contradiction steps.
+
+After generation, every row and column with no island is cut out, so boards
+are often smaller than their canvas (and can be rectangular). Removing empty
+water never changes which islands can see each other, so the puzzle is the same.
 
 Both boards are date-seeded picks from pre-verified pools (`puzzles.js`,
 `puzzles-hard.js`), so everyone gets the same puzzle each day.

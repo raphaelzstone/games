@@ -62,10 +62,10 @@ const TABS = [
   { key: "grader-hard", label: "Grader 7×7", coll: "grader_scores",
     match: (r) => r.mode === "hard",
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
-  { key: "bridges-easy", label: "Bridges 7×7", coll: "bridges_scores",
+  { key: "bridges-easy", label: "Bridges Easy", coll: "bridges_scores",
     match: (r) => r.mode === "easy",
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
-  { key: "bridges-hard", label: "Bridges 10×10", coll: "bridges_scores",
+  { key: "bridges-hard", label: "Bridges Hard", coll: "bridges_scores",
     match: (r) => r.mode === "hard",
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
   // Square Up is offline for now (see index.html) — its tab is pulled too so
