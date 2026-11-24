@@ -275,22 +275,28 @@ function paintCell(cell, state, k) {
   const idx = +cell.dataset.idx;
   cell.classList.toggle("is-ansatz", !!game?.ansatzActive && !!game.ansatzStart
     && state !== game.ansatzStart.cells[idx]);
+  cell.innerHTML = glyphHTML(state, k);
+}
+function glyphHTML(state, k) {
+  const question = 2 + k;
   if (state === BLANKMARK) {
-    cell.innerHTML = `<svg class="glyph blank" viewBox="0 0 100 100" aria-hidden="true">
+    return `<svg class="glyph blank" viewBox="0 0 100 100" aria-hidden="true">
       <path d="M34 34 L66 66 M66 34 L34 66" stroke="currentColor" stroke-width="11"
             stroke-linecap="round" fill="none"/></svg>`;
   } else if (isLetterState(state, k)) {
-    cell.innerHTML = `<span class="letter">${letterChar(letterIndexOf(state))}</span>`;
+    return `<span class="letter">${letterChar(letterIndexOf(state))}</span>`;
   } else if (state === question) {
-    cell.innerHTML = `<span class="question-mark" aria-label="uncertain">?</span>`;
-  } else {
-    cell.innerHTML = "";
+    return `<span class="question-mark" aria-label="uncertain">?</span>`;
   }
+  return "";
 }
 
 function setCell(idx, state) {
   if (game.cells[idx] === state) return;
-  if (game.ansatzActive && game.ansatzStart.firstIdx == null) game.ansatzStart.firstIdx = idx;
+  if (game.ansatzActive && game.ansatzStart.firstIdx == null) {
+    game.ansatzStart.firstIdx = idx;
+    game.ansatzStart.firstState = state;
+  }
   if (pendingBatch) pendingBatch.push({ idx, prev: game.cells[idx] });
   game.cells[idx] = state;
   const cell = document.querySelector(`#board .cell[data-idx="${idx}"]`);
@@ -336,7 +342,12 @@ function updateRefutedHighlight() {
   const top = game.history[game.history.length - 1];
   const hi = top && top.refutedIdx != null ? top.refutedIdx : -1;
   document.querySelectorAll("#board .cell.plot").forEach((el) => {
-    el.classList.toggle("refuted", +el.dataset.idx === hi);
+    const idx = +el.dataset.idx;
+    const was = el.classList.contains("refuted");
+    el.classList.toggle("refuted", idx === hi);
+    // Show the refuted guess itself in place of the cell's real contents.
+    if (idx === hi) el.innerHTML = glyphHTML(top.refutedState, game.k);
+    else if (was) paintCell(el, game.cells[idx], game.k);
   });
 }
 
@@ -507,6 +518,7 @@ function discardAnsatz() {
   if (firstIdx != null) {
     const turn = [];
     turn.refutedIdx = firstIdx;
+    turn.refutedState = game.ansatzStart.firstState;
     game.history.push(turn);
   }
   game.selected = null;
