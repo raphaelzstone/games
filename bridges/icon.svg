@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#4a8159"/>
+  <g stroke="#f3f6ee" stroke-width="18" stroke-linecap="round">
+    <line x1="140" y1="236" x2="372" y2="236"/>
+    <line x1="140" y1="276" x2="372" y2="276"/>
+    <line x1="140" y1="256" x2="140" y2="400"/>
+  </g>
+  <g fill="#f3f6ee" stroke="#2f5a3b" stroke-width="10">
+    <circle cx="140" cy="256" r="62"/>
+    <circle cx="372" cy="256" r="62"/>
+    <circle cx="140" cy="420" r="44"/>
+  </g>
+  <g font-family="'SF Mono', 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace" font-weight="800" fill="#2f5a3b" text-anchor="middle">
+    <text x="140" y="284" font-size="80">3</text>
+    <text x="372" y="284" font-size="80">2</text>
+    <text x="140" y="441" font-size="58">1</text>
+  </g>
+</svg>

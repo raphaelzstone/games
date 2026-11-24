@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#b8cab0" />
+  <title>Bridges</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <span class="topbar-left">
+        <a id="hub-btn" class="home-btn hub-btn" href="../">&larr; All games</a>
+        <button id="home-btn" class="home-btn" hidden>&larr; Menu</button>
+      </span>
+      <h1 class="logo">Bridges</h1>
+      <div class="date" id="date-label"></div>
+    </header>
+
+    <!-- MENU ------------------------------------------------------------- -->
+    <section id="view-menu" class="view">
+      <p class="who">
+        Playing as <button id="name-btn" class="name-btn" title="Change name"><span id="player-name">…</span> <span class="pencil">✎</span></button>
+        <label class="anonymous-toggle" title="Keep local results, but do not submit scores to leaderboards."><input id="anonymous-toggle" type="checkbox" /> Anonymous</label>
+        <span id="streak" class="streak" hidden></span>
+      </p>
+      <p class="tagline">A daily bridge-building puzzle. Fresh islands every day.</p>
+      <div class="menu-cards">
+        <button class="mode-card" data-mode="easy">
+          <span class="mode-title">Today's Bridges <span class="mode-badge">7×7</span></span>
+          <span class="mode-art" aria-hidden="true">
+            <svg viewBox="0 0 120 40" width="120" height="40"><g class="art-bridge"><line x1="20" y1="20" x2="60" y2="20"/><line x1="60" y1="17" x2="100" y2="17"/><line x1="60" y1="23" x2="100" y2="23"/></g><g class="art-island"><circle cx="20" cy="20" r="12"/><circle cx="60" cy="20" r="12"/><circle cx="100" cy="20" r="12"/></g><g class="art-num"><text x="20" y="25">1</text><text x="60" y="25">3</text><text x="100" y="25">2</text></g></svg>
+          </span>
+          <span class="mode-desc">Connect every island with the right number of bridges. Solve it as fast as you can.</span>
+          <span class="mode-status" id="status-easy"></span>
+        </button>
+        <button class="mode-card" data-mode="hard">
+          <span class="mode-title">Hard Bridges <span class="mode-badge">10×10</span></span>
+          <span class="mode-art" aria-hidden="true">
+            <svg viewBox="0 0 120 40" width="120" height="40"><g class="art-bridge"><line x1="14" y1="17" x2="46" y2="17"/><line x1="14" y1="23" x2="46" y2="23"/><line x1="46" y1="20" x2="78" y2="20"/><line x1="78" y1="17" x2="108" y2="17"/><line x1="78" y1="23" x2="108" y2="23"/></g><g class="art-island"><circle cx="14" cy="20" r="11"/><circle cx="46" cy="20" r="11"/><circle cx="78" cy="20" r="11"/><circle cx="108" cy="20" r="11"/></g><g class="art-num"><text x="14" y="25">2</text><text x="46" y="25">3</text><text x="78" y="25">3</text><text x="108" y="25">2</text></g></svg>
+          </span>
+          <span class="mode-desc">A bigger sea with more islands. Every puzzle still needs real deduction to crack.</span>
+          <span class="mode-status" id="status-hard"></span>
+        </button>
+      </div>
+      <div class="menu-actions">
+        <button id="menu-share-btn" class="primary-btn" hidden>Copy result</button>
+        <button id="menu-rules-btn" class="ghost-btn rules-toggle" aria-expanded="false" aria-controls="rules-box">How to play <span class="caret">▾</span></button>
+        <button id="menu-board-btn" class="ghost-btn">🏆 Leaderboard</button>
+      </div>
+      <p class="copied-toast" id="menu-copied-toast" hidden>Copied to clipboard!</p>
+
+      <div id="rules-box" class="rules-box" hidden>
+        <p class="rules-goal">Connect the islands with bridges so that every island has <b>exactly as many bridges as its number</b>, and all the islands form <b>one connected group</b>. Every puzzle is solvable by logic alone, no guessing.</p>
+        <div class="rules-diagrams">
+          <figure class="dia info">
+            <div id="rules-diagram" class="board mini-rules-board"></div>
+            <figcaption>A solved example. The lower 3 has a double bridge up and a single bridge to the left.</figcaption>
+          </figure>
+        </div>
+        <h4>The rules</h4>
+        <ul>
+          <li>Bridges run straight across or straight down, between two islands with nothing in between.</li>
+          <li>At most <b>two</b> bridges join any pair of islands.</li>
+          <li>Bridges never cross each other or pass over an island.</li>
+          <li>Every island ends up connected to every other one.</li>
+        </ul>
+        <h4>Controls</h4>
+        <ul>
+          <li><b>Tap</b> an island to select it. Islands it can reach get a ring.</li>
+          <li>Then <b>tap a ringed island</b> to add a bridge between them. Do the same pair again for a double bridge, and once more to remove it. You can also <b>drag</b> from one island to another.</li>
+          <li><b>Tap a bridge</b> to cycle it: single, double, none.</li>
+          <li>An island turns <b>grey</b> when it has all its bridges, and <b>red</b> if it has too many.</li>
+          <li>Tap <b>Ansatz</b> to explore a possibility. New bridges turn orange; choose <b>Verified</b> to keep them or <b>Discard</b> to return to where you started. After a discard, the first bridge you tried is highlighted for one move.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- GAME ------------------------------------------------------------- -->
+    <section id="view-game" class="view" hidden>
+      <div class="gamebar">
+        <span class="gamebar-left">
+          <span class="game-mode-label" id="game-mode-label"></span>
+          <span class="progress-pill" id="progress-pill">0 / 0</span>
+        </span>
+        <span class="countdown" id="timer">0:00</span>
+      </div>
+      <p class="rules">Tap an island, then a ringed island to bridge them · tap a bridge to cycle it.</p>
+      <div id="board" class="board"></div>
+      <p id="hint" class="hint" aria-live="polite"></p>
+      <div class="action-bar">
+        <button id="ansatz-toggle-btn" class="action-btn ansatz-toggle-btn">Ansatz</button>
+        <button id="verify-ansatz-btn" class="action-btn verify-ansatz-btn" hidden>Verified</button>
+        <button id="discard-ansatz-btn" class="ghost-btn discard-ansatz-btn" hidden>Discard</button>
+      </div>
+      <div class="game-actions">
+        <button id="undo-btn" class="ghost-btn" disabled>Undo</button>
+        <button id="clear-btn" class="ghost-btn">Clear board</button>
+      </div>
+    </section>
+
+    <!-- RESULTS ---------------------------------------------------------- -->
+    <section id="view-results" class="view" hidden>
+      <h2 id="results-title">Solved!</h2>
+      <div class="final-score" id="final-time">0:00</div>
+      <div class="final-score-label">your time</div>
+      <div id="solved-board" class="board solved-board"></div>
+      <div class="result-actions">
+        <button id="results-share-btn" class="primary-btn">Copy result</button>
+        <button id="results-menu-btn" class="ghost-btn">Back to menu</button>
+      </div>
+      <p class="copied-toast" id="results-copied-toast" hidden>Copied to clipboard!</p>
+    </section>
+
+    <!-- LEADERBOARD ------------------------------------------------------ -->
+    <section id="view-board" class="view" hidden>
+      <h2 class="board-title">Leaderboard</h2>
+      <div id="board-content" class="board-content"></div>
+      <div class="result-actions">
+        <button id="board-menu-btn" class="ghost-btn">Back to menu</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="puzzles.js"></script>
+  <script src="puzzles-hard.js"></script>
+  <script src="identity.js"></script>
+  <script src="firebase-config.js"></script>
+  <script type="module" src="leaderboard.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch(() => { /* ignore */ });
+      });
+    }
+  </script>
+</body>
+</html>

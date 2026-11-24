@@ -10,6 +10,8 @@
  *   - Combos      → `combos_scores`, ranked by points (score, higher wins).
  *   - Forks       → `forks_scores`, ranked by points (score, higher wins).
  *   - Staircases  → `staircases_scores`, ranked by points (score, higher wins).
+ *   - Grader / Bridges → `grader_scores` / `bridges_scores`, fastest time,
+ *                    split by mode ("easy" / "hard").
  *   - Square Up   → `squareup_scores`, ranked by fastest time (currently
  *                    unlinked from the hub; see index.html).
  * Each collection is fetched once for yesterday's date, then sorted per tab
@@ -58,6 +60,12 @@ const TABS = [
     match: (r) => r.mode === "easy",
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
   { key: "grader-hard", label: "Grader 7×7", coll: "grader_scores",
+    match: (r) => r.mode === "hard",
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  { key: "bridges-easy", label: "Bridges 7×7", coll: "bridges_scores",
+    match: (r) => r.mode === "easy",
+    rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
+  { key: "bridges-hard", label: "Bridges 10×10", coll: "bridges_scores",
     match: (r) => r.mode === "hard",
     rank: (a, b) => a.seconds - b.seconds, value: (r) => fmtTime(r.seconds) },
   // Square Up is offline for now (see index.html) — its tab is pulled too so

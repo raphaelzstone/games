@@ -93,6 +93,7 @@ body {
 
 .game-art { display: flex; gap: 8px; align-items: flex-end; height: 52px; }
 .art-glyph { width: 46px; height: 46px; display: block; }
+.bridges-art { width: 110px; height: 46px; display: block; }
 
 .game-art-stairs { align-items: center; }
 .game-art-stairs .stairs-svg { width: 68px; height: 52px; display: block; }

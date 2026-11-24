@@ -313,7 +313,9 @@ body {
 .ansatz-toggle-btn, .verify-ansatz-btn { font-family: var(--sans); font-size: 14px; font-weight: 700; }
 .ansatz-toggle-btn { background: var(--tent); color: #3a2410; }
 .verify-ansatz-btn { background: var(--tent); color: #3a2410; }
-.discard-ansatz-btn { margin: 0; align-self: center; }
+.action-bar .discard-ansatz-btn { margin: 0; align-self: center; }
+/* .ghost-btn sets display:block, which would otherwise beat the hidden attribute. */
+[hidden] { display: none !important; }
 
 /* Buttons ----------------------------------------------------------------- */
 .ghost-btn {
